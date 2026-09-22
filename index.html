@@ -3,56 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Survive Until 6AM · Demon Stalker</title>
+<title>Survive Until 6AM · The Baphomet Stalker</title>
 <style>
     * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-    body {
-        background: #05070a; min-height: 100vh;
-        display: flex; justify-content: center; align-items: center;
-        font-family: 'Courier New', Courier, monospace;
-        overflow: hidden; color: #b3c7e5;
-    }
-    .game-wrapper {
-        background: #1a1e24; padding: 16px; border-radius: 16px;
-        box-shadow: 0 0 40px #000, inset 0 0 12px #2f3742;
-    }
-    canvas {
-        display: block; width: 900px; height: 600px;
-        image-rendering: crisp-edges; image-rendering: pixelated;
-        border: 4px solid #3e4a5b; border-radius: 12px;
-        background: #0b0d10; cursor: pointer;
-    }
-    .info-bar {
-        display: flex; justify-content: space-between; align-items: center;
-        margin-top: 10px; gap: 8px; font-weight: bold;
-        letter-spacing: 1px; font-size: 0.85rem;
-    }
-    .info-bar span {
-        background: #1f262e; padding: 5px 12px; border-radius: 40px;
-        border: 2px solid #4b5e77; box-shadow: inset 0 0 6px #000;
-    }
-    .restart-btn {
-        background: #2d3847; border: none; color: #e5efff;
-        font-family: inherit; font-weight: bold; padding: 5px 14px;
-        border-radius: 40px; font-size: 0.85rem; cursor: pointer;
-        border: 2px solid #6a7f9c; box-shadow: 0 4px 0 #0e1217;
-    }
+    body { background: #05070a; min-height: 100vh; display: flex; justify-content: center; align-items: center; font-family: 'Courier New', Courier, monospace; overflow: hidden; color: #b3c7e5; }
+    .game-wrapper { background: #1a1e24; padding: 16px; border-radius: 16px; box-shadow: 0 0 40px #000, inset 0 0 12px #2f3742; }
+    canvas { display: block; width: 900px; height: 600px; image-rendering: crisp-edges; image-rendering: pixelated; border: 4px solid #3e4a5b; border-radius: 12px; background: #0b0d10; cursor: pointer; }
+    .info-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; font-weight: bold; letter-spacing: 1px; font-size: 0.8rem; }
+    .info-bar span { background: #1f262e; padding: 5px 10px; border-radius: 40px; border: 2px solid #4b5e77; box-shadow: inset 0 0 6px #000; }
+    .family-badge { border-color: #4a6a4a !important; }
+    .family-badge.dead { border-color: #6a2a2a !important; opacity: 0.5; text-decoration: line-through; }
+    .restart-btn { background: #2d3847; border: none; color: #e5efff; font-family: inherit; font-weight: bold; padding: 5px 14px; border-radius: 40px; font-size: 0.85rem; cursor: pointer; border: 2px solid #6a7f9c; box-shadow: 0 4px 0 #0e1217; }
     .restart-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #0e1217; }
-    .hint { text-align: center; margin-top: 6px; font-size: 0.75rem; color: #6a7a8a; letter-spacing: 1px; }
+    .hint { text-align: center; margin-top: 6px; font-size: 0.72rem; color: #6a7a8a; letter-spacing: 1px; }
 </style>
 </head>
 <body>
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
     <div class="info-bar">
+        <span class="family-badge" id="badgeMom">👩 MOM</span>
+        <span class="family-badge" id="badgeDad">👨 DAD</span>
+        <span class="family-badge" id="badgeSis">👧 SIS</span>
         <span>🔒 <span id="lockCount">8/8</span></span>
         <span>⏳ <span id="clockDisplay">12:00 AM</span></span>
         <span>🔋 <span id="batteryDisplay">100%</span></span>
-        <span>⚡ <span id="staminaDisplay">100%</span></span>
-        <span>🏆 <span id="bestTime">--</span></span>
         <button class="restart-btn" id="restartButton">↻ RESTART</button>
     </div>
-    <div class="hint">A/D or ← → to walk · E interact · SPACE flashlight · SHIFT sprint · TAB switch room · ESC pause</div>
+    <div class="hint">A/D walk · E interact / guide family · SPACE flashlight · SHIFT sprint · TAB switch room · ESC pause</div>
 </div>
 <script>
 (function() {
@@ -62,46 +40,42 @@ var canvas = document.getElementById('gameCanvas');
 var ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-var lockCountSpan      = document.getElementById('lockCount');
-var clockDisplaySpan   = document.getElementById('clockDisplay');
+var lockCountSpan = document.getElementById('lockCount');
+var clockDisplaySpan = document.getElementById('clockDisplay');
 var batteryDisplaySpan = document.getElementById('batteryDisplay');
-var staminaDisplaySpan = document.getElementById('staminaDisplay');
-var bestTimeSpan       = document.getElementById('bestTime');
+var badgeMom = document.getElementById('badgeMom');
+var badgeDad = document.getElementById('badgeDad');
+var badgeSis = document.getElementById('badgeSis');
 
-// ============================================================
-// AUDIO
-// ============================================================
+// ============ AUDIO ============
 var audioCtx = null;
 function initAudio() {
-    if (!audioCtx) {
-        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-        catch(e) { audioCtx = null; }
-    }
+    if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { audioCtx = null; } }
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }
-function beep(freq, dur, type, vol, slideTo) {
+function beep(f, d, t, v, s) {
     if (!audioCtx) return;
     try {
-        var o = audioCtx.createOscillator();
-        var g = audioCtx.createGain();
-        o.type = type || 'square';
-        o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + dur);
-        g.gain.setValueAtTime(vol || 0.08, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        var o = audioCtx.createOscillator(); var g = audioCtx.createGain();
+        o.type = t || 'square';
+        o.frequency.setValueAtTime(f, audioCtx.currentTime);
+        if (s) o.frequency.exponentialRampToValueAtTime(s, audioCtx.currentTime + d);
+        g.gain.setValueAtTime(v || 0.08, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
         o.connect(g); g.connect(audioCtx.destination);
-        o.start(); o.stop(audioCtx.currentTime + dur);
+        o.start(); o.stop(audioCtx.currentTime + d);
     } catch(e) {}
 }
-function sfxLock()      { beep(220, 0.14, 'sawtooth', 0.09, 110); }
-function sfxUnlock()    { beep(180, 0.12, 'square', 0.07, 300); }
-function sfxBreak()     { beep(140, 0.35, 'sawtooth', 0.13, 40); }
-function sfxGrowl()     { beep(80, 0.5, 'sawtooth', 0.11, 45); }
-function sfxHeartbeat() { beep(60, 0.1, 'sine', 0.14); }
-function sfxStep()      { beep(120 + Math.random()*40, 0.03, 'square', 0.025); }
-function sfxBarricade() { beep(150, 0.2, 'square', 0.09, 80); }
-function sfxFlash()     { beep(400, 0.05, 'square', 0.03); }
-function sfxDoorOpen()  { beep(280, 0.15, 'square', 0.05, 160); }
+var sfxLock      = function() { beep(220, 0.14, 'sawtooth', 0.09, 110); };
+var sfxUnlock    = function() { beep(180, 0.12, 'square', 0.07, 300); };
+var sfxBreak     = function() { beep(140, 0.35, 'sawtooth', 0.13, 40); };
+var sfxGrowl     = function() { beep(80, 0.5, 'sawtooth', 0.11, 45); };
+var sfxHeartbeat = function() { beep(60, 0.1, 'sine', 0.14); };
+var sfxStep      = function() { beep(120 + Math.random()*40, 0.03, 'square', 0.02); };
+var sfxBarricade = function() { beep(150, 0.2, 'square', 0.09, 80); };
+var sfxFlash     = function() { beep(400, 0.05, 'square', 0.03); };
+var sfxDoor      = function() { beep(280, 0.15, 'square', 0.05, 160); };
+var sfxFamily    = function() { beep(660, 0.08, 'sine', 0.06); setTimeout(function(){ beep(880, 0.1, 'sine', 0.06); }, 80); };
 function sfxScream() {
     if (!audioCtx) return;
     try {
@@ -116,141 +90,109 @@ function sfxScream() {
     } catch(e) {}
 }
 function sfxWin() {
-    [523, 659, 784, 1047].forEach(function(f, i) {
-        setTimeout(function(){ beep(f, 0.25, 'sine', 0.12); }, i * 180);
-    });
+    [523, 659, 784, 1047].forEach(function(f, i) { setTimeout(function(){ beep(f, 0.25, 'sine', 0.12); }, i * 180); });
 }
 
-// ============================================================
-// CONSTANTS
-// ============================================================
+// ============ CONSTANTS ============
 var HOURS = ['12:00 AM','1:00 AM','2:00 AM','3:00 AM','4:00 AM','5:00 AM','6:00 AM'];
 var DIFFICULTIES = {
     easy:      { hourLen: 20, baseInterval: 6.0, label: 'EASY',      color: '#4a8a4a' },
     normal:    { hourLen: 16, baseInterval: 4.5, label: 'NORMAL',    color: '#a8803a' },
     nightmare: { hourLen: 13, baseInterval: 3.2, label: 'NIGHTMARE', color: '#8a2a2a' }
 };
-
-// Player constants
-var PLAYER_SPEED = 260;        // pixels per second
+var PLAYER_SPEED = 260;
 var PLAYER_SPRINT_MULT = 1.8;
-var INTERACT_RANGE = 90;       // how close you must be to interact
-var FLOOR_Y = 500;             // where the player walks
+var INTERACT_RANGE = 90;
+var FAMILY_RANGE = 80;
+var FLOOR_Y = 500;
 
-// ============================================================
-// ROOMS
-// ============================================================
+// ============ ROOMS ============
 function buildRooms() {
     return [
-        {
-            id: 'bedroom', name: 'BEDROOM',
-            wall: '#1a1620', floor: '#13101a',
+        { id: 'bedroom', name: 'BEDROOM', wall: '#1a1620', floor: '#13101a',
             entryPoints: [
                 { x: 130, y: 300, w: 130, h: 220, type: 'window', label: 'WINDOW', locked: true, barricade: 0, maxBarricade: 3, anchorX: 195 },
-                { x: 620, y: 200, w: 140, h: 280, type: 'door',   label: 'DOOR',   locked: true, barricade: 0, maxBarricade: 4, anchorX: 690 }
+                { x: 620, y: 200, w: 140, h: 280, type: 'door', label: 'DOOR', locked: true, barricade: 0, maxBarricade: 4, anchorX: 690 }
             ],
             objects: [
-                { type: 'bed',  x: 340, y: 380, w: 200, h: 110 },
-                { type: 'lamp', x: 60,  y: 140, w: 30,  h: 60, on: false }
-            ]
-        },
-        {
-            id: 'hallway', name: 'HALLWAY',
-            wall: '#141820', floor: '#0f131a',
+                { type: 'bed', x: 340, y: 380, w: 200, h: 110 },
+                { type: 'lamp', x: 60, y: 140, w: 30, h: 60, on: false }
+            ] },
+        { id: 'hallway', name: 'HALLWAY', wall: '#141820', floor: '#0f131a',
             entryPoints: [
                 { x: 380, y: 200, w: 140, h: 260, type: 'door', label: 'FRONT', locked: true, barricade: 0, maxBarricade: 5, anchorX: 450 },
-                { x: 100, y: 240, w: 100, h: 180, type: 'vent', label: 'VENT',  locked: true, barricade: 0, maxBarricade: 2, anchorX: 150 },
-                { x: 700, y: 240, w: 100, h: 180, type: 'vent', label: 'VENT',  locked: true, barricade: 0, maxBarricade: 2, anchorX: 750 }
+                { x: 100, y: 240, w: 100, h: 180, type: 'vent', label: 'VENT', locked: true, barricade: 0, maxBarricade: 2, anchorX: 150 },
+                { x: 700, y: 240, w: 100, h: 180, type: 'vent', label: 'VENT', locked: true, barricade: 0, maxBarricade: 2, anchorX: 750 }
             ],
             objects: [
                 { type: 'painting', x: 250, y: 130, w: 60, h: 80 },
-                { type: 'painting', x: 590, y: 130, w: 60, h: 80 }
-            ]
-        },
-        {
-            id: 'kitchen', name: 'KITCHEN',
-            wall: '#1c1814', floor: '#161210',
+                { type: 'pentagram', x: 560, y: 130, w: 100, h: 100 }
+            ] },
+        { id: 'kitchen', name: 'KITCHEN', wall: '#1c1814', floor: '#161210',
             entryPoints: [
                 { x: 700, y: 280, w: 150, h: 240, type: 'window', label: 'WINDOW', locked: true, barricade: 0, maxBarricade: 3, anchorX: 775 },
-                { x: 400, y: 180, w: 120, h: 80,  type: 'vent',   label: 'VENT',   locked: true, barricade: 0, maxBarricade: 2, anchorX: 460 }
+                { x: 400, y: 180, w: 120, h: 80, type: 'vent', label: 'VENT', locked: true, barricade: 0, maxBarricade: 2, anchorX: 460 }
             ],
             objects: [
                 { type: 'counter', x: 100, y: 400, w: 200, h: 60 },
-                { type: 'fridge',  x: 60,  y: 220, w: 70,  h: 170 }
-            ]
-        },
-        {
-            id: 'living', name: 'LIVING ROOM',
-            wall: '#18161c', floor: '#121017',
+                { type: 'fridge', x: 60, y: 220, w: 70, h: 170 }
+            ] },
+        { id: 'living', name: 'LIVING ROOM', wall: '#18161c', floor: '#121017',
             entryPoints: [
-                { x: 100, y: 260, w: 150, h: 250, type: 'door',   label: 'BACK',   locked: true, barricade: 0, maxBarricade: 4, anchorX: 175 },
+                { x: 100, y: 260, w: 150, h: 250, type: 'door', label: 'BACK', locked: true, barricade: 0, maxBarricade: 4, anchorX: 175 },
                 { x: 620, y: 260, w: 150, h: 250, type: 'window', label: 'WINDOW', locked: true, barricade: 0, maxBarricade: 3, anchorX: 695 }
             ],
             objects: [
                 { type: 'sofa', x: 330, y: 420, w: 240, h: 80 },
-                { type: 'tv',   x: 380, y: 200, w: 140, h: 100, on: false }
-            ]
-        }
+                { type: 'tv', x: 380, y: 200, w: 140, h: 100, on: false }
+            ] }
     ];
 }
 
-// ============================================================
-// STATE
-// ============================================================
+// ============ FAMILY ============
+function makeFamily() {
+    return [
+        { id: 'mom', name: 'MOM', roomIndex: 2, x: 300, homeRoom: 2, state: 'wander', moveTimer: 3, targetX: 300, alive: true, facing: 1, walkTimer: 0, breathe: 0, following: false },
+        { id: 'dad', name: 'DAD', roomIndex: 3, x: 550, homeRoom: 3, state: 'wander', moveTimer: 4, targetX: 550, alive: true, facing: 1, walkTimer: 0, breathe: 0, following: false },
+        { id: 'sis', name: 'SIS', roomIndex: 0, x: 250, homeRoom: 0, state: 'wander', moveTimer: 5, targetX: 250, alive: true, facing: 1, walkTimer: 0, breathe: 0, following: false }
+    ];
+}
+
+// ============ STATE ============
 var gameState = {};
 function freshState() {
     return {
-        scene: 'title',
-        difficulty: 'normal',
+        scene: 'title', difficulty: 'normal',
         hour: 0, hourTimer: 0, hourLength: 16,
         attackTimer: 0, attackInterval: 4.5, baseInterval: 4.5,
-        demonForm: 'panther', formTimer: 6,
-        flickerTimer: 0,
-        demonBob: 0, demonPose: 'idle', poseTimer: 0,
-        msg: '', msgTimer: 0,
-        shake: 0, warning: 0,
+        demonForm: 'baphomet', formTimer: 8,
+        flickerTimer: 0, demonBob: 0, demonPose: 'idle', poseTimer: 0,
+        msg: '', msgTimer: 0, shake: 0, warning: 0,
         roomIndex: 0,
-        stamina: 100, maxStamina: 100,
-        sprinting: false,
+        stamina: 100, maxStamina: 100, sprinting: false,
         flashlight: false, battery: 100, maxBattery: 100,
-        noise: 0,
-        rooms: buildRooms(),
+        noise: 0, rooms: buildRooms(),
+        family: makeFamily(),
         demonTargetRoom: 0, demonTargetEntry: 0,
         timeSurvived: 0, deathTimer: 0, winTimer: 0,
-        jumpscareTimer: 0, jumpscareForm: 'panther',
+        jumpscareTimer: 0, jumpscareForm: 'baphomet', deathReason: '',
         heartbeatTimer: 0, heartbeatInterval: 1.5,
         moonFlicker: 0, paused: false,
-        bloodSplats: [], sparks: [],
-        keys: {},
-        // Player
+        bloodSplats: [], sparks: [], keys: {},
         player: {
-            x: 450, y: FLOOR_Y,
-            facing: 1,               // 1 = right, -1 = left
-            state: 'idle',           // idle | walking | locking
-            walkTimer: 0,
-            lockTimer: 0,
-            lockTarget: null,        // entry point being locked/unlocked
-            walkTargetX: null,       // x position player is walking to
-            idleBreathe: 0
+            x: 450, y: FLOOR_Y, facing: 1, state: 'idle',
+            walkTimer: 0, lockTimer: 0, lockTarget: null,
+            walkTargetX: null, idleBreathe: 0, followingFamily: null
         }
     };
 }
 
+// ============ BEST TIME ============
 var bestTime = 0;
-try { var v = localStorage.getItem('demonStalkerBest2'); bestTime = v ? parseFloat(v) : 0; } catch(e){}
-function saveBest(t) { try { localStorage.setItem('demonStalkerBest2', t.toString()); } catch(e){} }
-function updateBestUI() {
-    if (bestTime <= 0) { bestTimeSpan.textContent = '--'; return; }
-    var h = Math.floor(bestTime / 60);
-    var m = Math.floor(bestTime) % 60;
-    var s = Math.floor((bestTime * 10) % 10);
-    bestTimeSpan.textContent = h + 'h' + m + 'm' + s + 's';
-}
-updateBestUI();
+try { var v = localStorage.getItem('baphometBest'); bestTime = v ? parseFloat(v) : 0; } catch(e){}
+function saveBest(t) { try { localStorage.setItem('baphometBest', t.toString()); } catch(e){} }
 
-// ============================================================
-// HELPERS
-// ============================================================
+// ============ HELPERS ============
 function currentRoom() { return gameState.rooms[gameState.roomIndex]; }
 function totalLocked() {
     var c = 0;
@@ -265,27 +207,37 @@ function totalEntryPoints() {
     return c;
 }
 function updateHUD() {
-    lockCountSpan.textContent      = totalLocked() + '/' + totalEntryPoints();
-    clockDisplaySpan.textContent   = HOURS[gameState.hour];
+    lockCountSpan.textContent = totalLocked() + '/' + totalEntryPoints();
+    clockDisplaySpan.textContent = HOURS[gameState.hour];
     batteryDisplaySpan.textContent = Math.max(0, Math.floor(gameState.battery)) + '%';
-    staminaDisplaySpan.textContent = Math.max(0, Math.floor(gameState.stamina)) + '%';
+    var fam = gameState.family;
+    for (var i = 0; i < fam.length; i++) {
+        var badge = i === 0 ? badgeMom : i === 1 ? badgeDad : badgeSis;
+        if (fam[i].alive) badge.classList.remove('dead');
+        else badge.classList.add('dead');
+    }
 }
-function findNearestEntry() {
+function findNearestInteractable() {
     var room = currentRoom();
     var px = gameState.player.x;
-    var nearest = null;
-    var nd = INTERACT_RANGE;
-    for (var i = 0; i < room.entryPoints.length; i++) {
-        var ep = room.entryPoints[i];
-        var d = Math.abs(px - ep.anchorX);
-        if (d < nd) { nd = d; nearest = ep; }
+    // family first
+    var nearest = null; var nd = FAMILY_RANGE; var kind = null;
+    for (var i = 0; i < gameState.family.length; i++) {
+        var f = gameState.family[i];
+        if (!f.alive || f.roomIndex !== gameState.roomIndex) continue;
+        var d = Math.abs(px - f.x);
+        if (d < nd) { nd = d; nearest = f; kind = 'family'; }
     }
-    return nearest;
+    // entries
+    for (var j = 0; j < room.entryPoints.length; j++) {
+        var ep = room.entryPoints[j];
+        var d2 = Math.abs(px - ep.anchorX);
+        if (d2 < Math.min(INTERACT_RANGE, nd)) { nd = d2; nearest = ep; kind = 'entry'; }
+    }
+    return nearest ? { obj: nearest, kind: kind } : null;
 }
 
-// ============================================================
-// START
-// ============================================================
+// ============ START ============
 function startGame(difficulty) {
     initAudio();
     gameState = freshState();
@@ -295,19 +247,16 @@ function startGame(difficulty) {
     gameState.baseInterval = d.baseInterval;
     gameState.attackInterval = d.baseInterval;
     gameState.scene = 'playing';
-    gameState.msg = 'Lock every window & door!';
-    gameState.msgTimer = 2.5;
+    gameState.msg = 'The family is scattered. Protect them!';
+    gameState.msgTimer = 3;
     updateHUD();
 }
 
-// ============================================================
-// INPUT
-// ============================================================
+// ============ INPUT ============
 window.addEventListener('keydown', function(e) {
     if (!gameState.keys) gameState.keys = {};
     var k = e.key.toLowerCase();
     gameState.keys[k] = true;
-
     if (gameState.scene === 'title') {
         if (e.key === '1') startGame('easy');
         if (e.key === '2') startGame('normal');
@@ -319,10 +268,7 @@ window.addEventListener('keydown', function(e) {
         if (gameState.paused) return;
         if (e.key === ' ') { e.preventDefault(); toggleFlashlight(); }
         if (k === 'e') tryInteract();
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            switchRoom(1);
-        }
+        if (e.key === 'Tab') { e.preventDefault(); switchRoom(1); }
     }
     if (gameState.scene === 'dead' || gameState.scene === 'win') {
         if (e.key === 'Enter' || e.key === ' ') gameState.scene = 'title';
@@ -331,13 +277,11 @@ window.addEventListener('keydown', function(e) {
 window.addEventListener('keyup', function(e) {
     if (gameState.keys) gameState.keys[e.key.toLowerCase()] = false;
 });
-
 canvas.addEventListener('click', function(e) {
     initAudio();
     var r = canvas.getBoundingClientRect();
     var mx = (e.clientX - r.left) * (canvas.width / r.width);
-    var my = (e.clientY - r.top)  * (canvas.height / r.height);
-
+    var my = (e.clientY - r.top) * (canvas.height / r.height);
     if (gameState.scene === 'title') {
         var btnY = 400;
         if (my > btnY && my < btnY + 55) {
@@ -347,121 +291,102 @@ canvas.addEventListener('click', function(e) {
         }
         return;
     }
-    if (gameState.scene !== 'playing') return;
-    if (gameState.paused) return;
+    if (gameState.scene !== 'playing' || gameState.paused) return;
     if (gameState.player.state === 'locking') return;
-
-    // room tabs (bottom)
-    var tabW = 150;
-    var tabY = 555;
-    var startX = 450 - (gameState.rooms.length * tabW) / 2;
+    var tabW = 150, tabY = 555, startX = 450 - (gameState.rooms.length * tabW) / 2;
     if (my >= tabY && my <= tabY + 32) {
         for (var ti = 0; ti < gameState.rooms.length; ti++) {
             var tx = startX + ti * tabW;
             if (mx >= tx + 4 && mx <= tx + tabW - 4) {
-                if (ti !== gameState.roomIndex) {
-                    gameState.roomIndex = ti;
-                    gameState.player.x = 450;
-                    gameState.player.walkTargetX = null;
-                    sfxDoorOpen();
-                    gameState.stamina = Math.max(0, gameState.stamina - 5);
-                    gameState.noise = Math.min(100, gameState.noise + 8);
-                    updateHUD();
-                }
+                if (ti !== gameState.roomIndex) switchRoomTo(ti);
                 return;
             }
         }
     }
-
-    // click entry point → walk to it
     var room = currentRoom();
     for (var i = 0; i < room.entryPoints.length; i++) {
         var ep = room.entryPoints[i];
         if (mx >= ep.x && mx <= ep.x + ep.w && my >= ep.y && my <= ep.y + ep.h) {
-            // player walks to anchorX
             gameState.player.walkTargetX = ep.anchorX;
             gameState.player.state = 'walking';
             return;
         }
     }
 });
-
 function toggleFlashlight() {
     if (gameState.battery <= 0) { gameState.flashlight = false; return; }
-    gameState.flashlight = !gameState.flashlight;
-    sfxFlash();
+    gameState.flashlight = !gameState.flashlight; sfxFlash();
 }
-
 function tryInteract() {
     if (gameState.player.state === 'locking') return;
-    var ep = findNearestEntry();
-    if (!ep) {
-        gameState.msg = 'Nothing to interact with — walk closer';
-        gameState.msgTimer = 1.2;
+    var near = findNearestInteractable();
+    if (!near) {
+        gameState.player.followingFamily = null;
+        gameState.msg = 'Nothing nearby';
+        gameState.msgTimer = 1;
         return;
     }
-    // face the entry
+    if (near.kind === 'family') {
+        var fam = near.obj;
+        if (gameState.player.followingFamily === fam) {
+            gameState.player.followingFamily = null;
+            fam.following = false;
+            gameState.msg = fam.name + ' stays here.';
+        } else {
+            gameState.player.followingFamily = fam;
+            fam.following = true;
+            fam.roomIndex = gameState.roomIndex;
+            fam.x = gameState.player.x - gameState.player.facing * 40;
+            sfxFamily();
+            gameState.msg = fam.name + ' follows you';
+        }
+        gameState.msgTimer = 1.5;
+        return;
+    }
+    // entry
+    var ep = near.obj;
     gameState.player.facing = (ep.anchorX > gameState.player.x) ? 1 : -1;
     gameState.player.state = 'locking';
     gameState.player.lockTimer = 0.55;
     gameState.player.lockTarget = ep;
 }
-
 function switchRoom(dir) {
     if (gameState.player.state === 'locking') return;
     var n = gameState.rooms.length;
-    gameState.roomIndex = (gameState.roomIndex + dir + n) % n;
+    switchRoomTo((gameState.roomIndex + dir + n) % n);
+}
+function switchRoomTo(idx) {
+    gameState.roomIndex = idx;
     gameState.player.x = 450;
     gameState.player.walkTargetX = null;
     gameState.player.state = 'idle';
-    sfxDoorOpen();
+    // if following family, bring them
+    if (gameState.player.followingFamily && gameState.player.followingFamily.alive) {
+        gameState.player.followingFamily.roomIndex = idx;
+        gameState.player.followingFamily.x = 450 - 40;
+    }
+    sfxDoor();
     gameState.noise = Math.min(100, gameState.noise + 10);
     updateHUD();
 }
-
 function applyLockAction(ep) {
-    if (ep.locked) {
-        ep.locked = false;
-        sfxUnlock();
-        gameState.msg = ep.label + ' unlocked!';
-        gameState.msgTimer = 1.2;
-    } else if (ep.barricade < ep.maxBarricade) {
-        ep.barricade++;
-        sfxBarricade();
-        gameState.msg = 'Barricade +1 (' + ep.barricade + '/' + ep.maxBarricade + ')';
-        gameState.msgTimer = 1.2;
-    } else {
-        ep.locked = true;
-        ep.barricade = 0;
-        sfxLock();
-        gameState.msg = ep.label + ' locked again';
-        gameState.msgTimer = 1.2;
-    }
+    if (ep.locked) { ep.locked = false; sfxUnlock(); gameState.msg = ep.label + ' unlocked!'; }
+    else if (ep.barricade < ep.maxBarricade) { ep.barricade++; sfxBarricade(); gameState.msg = 'Barricade ' + ep.barricade + '/' + ep.maxBarricade; }
+    else { ep.locked = true; ep.barricade = 0; sfxLock(); gameState.msg = ep.label + ' locked again'; }
+    gameState.msgTimer = 1.2;
     updateHUD();
 }
 
-// ============================================================
-// UPDATE
-// ============================================================
+// ============ UPDATE ============
 function update(dt) {
-    if (gameState.scene === 'title') {
-        gameState.demonBob = Math.sin(Date.now() * 0.003) * 4;
-        return;
-    }
-    if (gameState.scene === 'dead') {
-        gameState.deathTimer += dt;
-        gameState.jumpscareTimer += dt;
-        gameState.shake = Math.max(0, gameState.shake - dt * 2);
-        return;
-    }
+    if (gameState.scene === 'title') { gameState.demonBob = Math.sin(Date.now() * 0.003) * 4; return; }
+    if (gameState.scene === 'dead') { gameState.deathTimer += dt; gameState.jumpscareTimer += dt; gameState.shake = Math.max(0, gameState.shake - dt * 2); return; }
     if (gameState.scene === 'win') { gameState.winTimer += dt; return; }
     if (gameState.paused) return;
-
     gameState.timeSurvived += dt;
-
     updatePlayer(dt);
+    updateFamily(dt);
 
-    // sprint / stamina
     gameState.sprinting = !!gameState.keys['shift'];
     if (gameState.sprinting && gameState.stamina > 0 && gameState.player.state === 'walking') {
         gameState.stamina = Math.max(0, gameState.stamina - dt * 18);
@@ -469,32 +394,22 @@ function update(dt) {
     } else {
         gameState.stamina = Math.min(gameState.maxStamina, gameState.stamina + dt * 12);
     }
-
-    // flashlight battery
     if (gameState.flashlight) {
         gameState.battery = Math.max(0, gameState.battery - dt * 4.5);
-        if (gameState.battery <= 0) {
-            gameState.flashlight = false;
-            gameState.msg = 'Battery dead!';
-            gameState.msgTimer = 2;
-        }
+        if (gameState.battery <= 0) { gameState.flashlight = false; gameState.msg = 'Battery dead!'; gameState.msgTimer = 2; }
     } else {
         gameState.battery = Math.min(gameState.maxBattery, gameState.battery + dt * 0.6);
     }
-
-    // noise decay
     gameState.noise = Math.max(0, gameState.noise - dt * 20);
 
-    // timers
-    if (gameState.msgTimer > 0)      gameState.msgTimer -= dt;
-    if (gameState.formTimer > 0)     gameState.formTimer -= dt;
-    if (gameState.flickerTimer > 0)  gameState.flickerTimer -= dt;
-    if (gameState.shake > 0)         gameState.shake = Math.max(0, gameState.shake - dt * 2.5);
-    if (gameState.warning > 0)       gameState.warning = Math.max(0, gameState.warning - dt);
-    if (gameState.poseTimer > 0)     gameState.poseTimer -= dt;
+    if (gameState.msgTimer > 0) gameState.msgTimer -= dt;
+    if (gameState.formTimer > 0) gameState.formTimer -= dt;
+    if (gameState.flickerTimer > 0) gameState.flickerTimer -= dt;
+    if (gameState.shake > 0) gameState.shake = Math.max(0, gameState.shake - dt * 2.5);
+    if (gameState.warning > 0) gameState.warning = Math.max(0, gameState.warning - dt);
+    if (gameState.poseTimer > 0) gameState.poseTimer -= dt;
     gameState.demonBob = Math.sin(Date.now() * 0.008) * 3;
 
-    // fx decay
     for (var i = gameState.bloodSplats.length - 1; i >= 0; i--) {
         gameState.bloodSplats[i].life -= dt;
         if (gameState.bloodSplats[i].life <= 0) gameState.bloodSplats.splice(i, 1);
@@ -502,46 +417,36 @@ function update(dt) {
     for (var j = gameState.sparks.length - 1; j >= 0; j--) {
         gameState.sparks[j].life -= dt;
         gameState.sparks[j].vy += dt * 200;
-        gameState.sparks[j].y  += gameState.sparks[j].vy * dt;
+        gameState.sparks[j].y += gameState.sparks[j].vy * dt;
         if (gameState.sparks[j].life <= 0) gameState.sparks.splice(j, 1);
     }
 
-    // heartbeat
     var lockedRatio = totalLocked() / totalEntryPoints();
     gameState.heartbeatInterval = 0.5 + lockedRatio * 1.5 + gameState.noise * 0.003;
     gameState.heartbeatTimer += dt;
-    if (gameState.heartbeatTimer >= gameState.heartbeatInterval) {
-        gameState.heartbeatTimer = 0;
-        sfxHeartbeat();
-    }
-
-    // flicker
+    if (gameState.heartbeatTimer >= gameState.heartbeatInterval) { gameState.heartbeatTimer = 0; sfxHeartbeat(); }
     if (Math.random() < 0.004) gameState.flickerTimer = 0.3;
     gameState.moonFlicker = Math.random() < 0.015 ? 0.15 : 0;
 
-    // form change
     if (gameState.formTimer <= 0) {
-        var forms = ['panther', 'dog', 'wolf'];
+        var forms = ['baphomet', 'panther', 'wolf'];
         var nf = forms[Math.floor(Math.random() * 3)];
         if (nf === gameState.demonForm) nf = forms[(forms.indexOf(nf) + 1) % 3];
         gameState.demonForm = nf;
-        gameState.msg = 'Demon is now a ' + nf.toUpperCase();
-        gameState.msgTimer = 1.8;
-        gameState.formTimer = 6 + Math.random() * 6;
+        gameState.msg = 'Demon reveals: ' + nf.toUpperCase();
+        gameState.msgTimer = 2;
+        gameState.formTimer = 7 + Math.random() * 6;
     }
 
-    // attack
     gameState.attackTimer += dt;
     if (gameState.attackTimer >= gameState.attackInterval - 0.9 && gameState.warning <= 0) {
-        gameState.warning = 0.9;
-        sfxGrowl();
+        gameState.warning = 0.9; sfxGrowl();
     }
     if (gameState.attackTimer >= gameState.attackInterval) {
         gameState.attackTimer = 0;
         performAttack();
     }
 
-    // hour advance
     gameState.hourTimer += dt;
     if (gameState.hourTimer >= gameState.hourLength) {
         gameState.hourTimer = 0;
@@ -550,20 +455,15 @@ function update(dt) {
             updateHUD();
             var scaleTable = [1, 0.85, 0.72, 0.60, 0.50, 0.38];
             var scale = scaleTable[gameState.hour] || 0.38;
-            gameState.baseInterval   = DIFFICULTIES[gameState.difficulty].baseInterval * scale;
+            gameState.baseInterval = DIFFICULTIES[gameState.difficulty].baseInterval * scale;
             gameState.attackInterval = Math.min(gameState.attackInterval, gameState.baseInterval);
             gameState.battery = Math.min(gameState.maxBattery, gameState.battery + 25);
             gameState.stamina = gameState.maxStamina;
-
             if (gameState.hour >= 6) {
                 gameState.scene = 'win';
                 gameState.winTimer = 0;
                 sfxWin();
-                if (gameState.timeSurvived > bestTime) {
-                    bestTime = gameState.timeSurvived;
-                    saveBest(bestTime);
-                    updateBestUI();
-                }
+                if (gameState.timeSurvived > bestTime) { bestTime = gameState.timeSurvived; saveBest(bestTime); }
             } else {
                 gameState.msg = 'Hour ' + gameState.hour + ' — it grows bolder';
                 gameState.msgTimer = 2;
@@ -572,60 +472,32 @@ function update(dt) {
     }
 }
 
-// ---------- PLAYER UPDATE ----------
+// ============ PLAYER ============
 function updatePlayer(dt) {
     var p = gameState.player;
     p.idleBreathe += dt;
-
-    // Keyboard movement (only if not currently locking)
     var moveDir = 0;
-    var room = currentRoom();
-
     if (p.state !== 'locking') {
-        var left  = gameState.keys['a'] || gameState.keys['arrowleft'];
+        var left = gameState.keys['a'] || gameState.keys['arrowleft'];
         var right = gameState.keys['d'] || gameState.keys['arrowright'];
-        if (left)  moveDir = -1;
+        if (left) moveDir = -1;
         if (right) moveDir = 1;
-
-        if (moveDir !== 0) {
-            // keyboard override cancels click-walk target
-            p.walkTargetX = null;
-            p.state = 'walking';
-            p.facing = moveDir;
-        }
+        if (moveDir !== 0) { p.walkTargetX = null; p.state = 'walking'; p.facing = moveDir; }
     }
-
     var speed = PLAYER_SPEED;
     if (gameState.sprinting && gameState.stamina > 0) speed *= PLAYER_SPRINT_MULT;
-
-    // If we have a walkTarget (from click), move toward it
     if (p.state === 'walking' && p.walkTargetX !== null && moveDir === 0) {
         var diff = p.walkTargetX - p.x;
-        if (Math.abs(diff) < 6) {
-            p.x = p.walkTargetX;
-            p.walkTargetX = null;
-            p.state = 'idle';
-            // auto-interact on arrival
-            tryInteract();
-        } else {
-            moveDir = diff > 0 ? 1 : -1;
-            p.facing = moveDir;
-        }
+        if (Math.abs(diff) < 6) { p.x = p.walkTargetX; p.walkTargetX = null; p.state = 'idle'; tryInteract(); }
+        else { moveDir = diff > 0 ? 1 : -1; p.facing = moveDir; }
     }
-
     if (moveDir !== 0 && p.state !== 'locking') {
         p.x += moveDir * speed * dt;
-        // bounds
         if (p.x < 60) p.x = 60;
         if (p.x > 840) p.x = 840;
         p.state = 'walking';
         p.walkTimer += dt;
-    } else if (p.state !== 'locking') {
-        p.state = 'idle';
-        p.walkTimer = 0;
-    }
-
-    // Locking state
+    } else if (p.state !== 'locking') { p.state = 'idle'; p.walkTimer = 0; }
     if (p.state === 'locking') {
         p.lockTimer -= dt;
         if (p.lockTimer <= 0) {
@@ -636,9 +508,50 @@ function updatePlayer(dt) {
     }
 }
 
-// ============================================================
-// DEMON AI
-// ============================================================
+// ============ FAMILY AI ============
+function updateFamily(dt) {
+    for (var i = 0; i < gameState.family.length; i++) {
+        var f = gameState.family[i];
+        if (!f.alive) continue;
+        f.breathe += dt;
+        // following player
+        if (f.following && gameState.player.followingFamily === f) {
+            f.roomIndex = gameState.roomIndex;
+            var targetX = gameState.player.x - gameState.player.facing * 45;
+            var dx = targetX - f.x;
+            if (Math.abs(dx) > 8) {
+                f.x += Math.sign(dx) * 200 * dt;
+                f.facing = dx > 0 ? 1 : -1;
+                f.walkTimer += dt;
+            } else { f.walkTimer = 0; }
+            f.x = Math.max(60, Math.min(840, f.x));
+            continue;
+        }
+        // wander
+        f.moveTimer -= dt;
+        if (f.moveTimer <= 0) {
+            f.moveTimer = 2 + Math.random() * 4;
+            // 20% chance to change room (to home or adjacent)
+            if (Math.random() < 0.2) {
+                var newRoom = Math.floor(Math.random() * gameState.rooms.length);
+                f.roomIndex = newRoom;
+                f.x = 150 + Math.random() * 600;
+                f.targetX = f.x;
+            } else {
+                f.targetX = 100 + Math.random() * 700;
+            }
+        }
+        // move toward target
+        if (Math.abs(f.x - f.targetX) > 6) {
+            var ddx = f.targetX - f.x;
+            f.x += Math.sign(ddx) * 60 * dt;
+            f.facing = ddx > 0 ? 1 : -1;
+            f.walkTimer += dt;
+        } else { f.walkTimer = 0; }
+    }
+}
+
+// ============ DEMON AI ============
 function performAttack() {
     var rooms = gameState.rooms;
     var candidates = [];
@@ -649,7 +562,11 @@ function performAttack() {
             var weight = 1.0;
             if (!ep.locked) weight += 2.5;
             if (ep.barricade > 0) weight -= ep.barricade * 0.4;
-            if (ri === gameState.demonTargetRoom && ei === gameState.demonTargetEntry) weight += 1.5;
+            // strongly prefer rooms with family (demon hunts family)
+            for (var fi = 0; fi < gameState.family.length; fi++) {
+                if (gameState.family[fi].alive && gameState.family[fi].roomIndex === ri) weight += 1.8;
+            }
+            if (ri === gameState.demonTargetRoom && ei === gameState.demonTargetEntry) weight += 1.2;
             if (weight < 0.1) weight = 0.1;
             candidates.push({ ri: ri, ei: ei, w: weight });
         }
@@ -658,30 +575,17 @@ function performAttack() {
     for (var i = 0; i < candidates.length; i++) total += candidates[i].w;
     var roll = Math.random() * total;
     var pick = candidates[0];
-    for (var k = 0; k < candidates.length; k++) {
-        roll -= candidates[k].w;
-        if (roll <= 0) { pick = candidates[k]; break; }
-    }
-
+    for (var k = 0; k < candidates.length; k++) { roll -= candidates[k].w; if (roll <= 0) { pick = candidates[k]; break; } }
     var room = rooms[pick.ri];
     var entry = room.entryPoints[pick.ei];
-
-    var preferredType = gameState.demonForm === 'panther' ? 'door'
-                      : gameState.demonForm === 'dog'     ? 'window'
-                      : 'vent';
-    if (entry.type !== preferredType && Math.random() < 0.5) {
+    var preferredType = gameState.demonForm === 'baphomet' ? 'door'
+                      : gameState.demonForm === 'panther' ? 'window' : 'vent';
+    if (entry.type !== preferredType && Math.random() < 0.4) {
         var matching = [];
-        for (var m = 0; m < candidates.length; m++) {
-            if (rooms[candidates[m].ri].entryPoints[candidates[m].ei].type === preferredType)
-                matching.push(candidates[m]);
-        }
-        if (matching.length > 0) {
-            pick = matching[Math.floor(Math.random() * matching.length)];
-            room = rooms[pick.ri];
-            entry = room.entryPoints[pick.ei];
-        }
+        for (var m = 0; m < candidates.length; m++)
+            if (rooms[candidates[m].ri].entryPoints[candidates[m].ei].type === preferredType) matching.push(candidates[m]);
+        if (matching.length > 0) { pick = matching[Math.floor(Math.random() * matching.length)]; room = rooms[pick.ri]; entry = room.entryPoints[pick.ei]; }
     }
-
     gameState.demonTargetRoom = pick.ri;
     gameState.demonTargetEntry = pick.ei;
     attackEntry(room, entry);
@@ -692,212 +596,148 @@ function attackEntry(room, ep) {
     gameState.poseTimer = 0.5;
     gameState.shake = 1.0;
     sfxBreak();
-
     if (ep.barricade > 0) {
         ep.barricade--;
-        gameState.msg = gameState.demonForm.toUpperCase() + ' smashes a barricade in ' + room.name + '!';
+        gameState.msg = gameState.demonForm.toUpperCase() + ' destroys a barricade!';
         gameState.msgTimer = 1.8;
-        for (var i = 0; i < 12; i++) {
-            gameState.sparks.push({
-                x: ep.x + ep.w / 2 + (Math.random() - 0.5) * ep.w,
-                y: ep.y + ep.h / 2 + (Math.random() - 0.5) * ep.h,
-                vy: -Math.random() * 180,
-                life: 0.6 + Math.random() * 0.4
-            });
-        }
+        for (var i = 0; i < 12; i++)
+            gameState.sparks.push({ x: ep.x + ep.w/2 + (Math.random()-0.5)*ep.w, y: ep.y + ep.h/2 + (Math.random()-0.5)*ep.h, vy: -Math.random()*180, life: 0.6 + Math.random()*0.4 });
         return;
     }
-
     if (ep.locked) {
         ep.locked = false;
-        gameState.msg = gameState.demonForm.toUpperCase() + ' broke the ' + ep.label + ' in ' + room.name + '!';
+        gameState.msg = gameState.demonForm.toUpperCase() + ' broke ' + ep.label + '!';
         gameState.msgTimer = 1.8;
-        gameState.bloodSplats.push({ x: ep.x + ep.w / 2, y: ep.y + ep.h / 2, life: 3 });
+        gameState.bloodSplats.push({ x: ep.x + ep.w/2, y: ep.y + ep.h/2, life: 3 });
         updateHUD();
-        handleFormExtra(ep, room);
         return;
     }
-
-    gameState.scene = 'dead';
-    gameState.deathTimer = 0;
-    gameState.jumpscareTimer = 0;
-    gameState.jumpscareForm = gameState.demonForm;
-    sfxScream();
-    gameState.shake = 2;
-}
-
-function handleFormExtra(ep, room) {
-    if (gameState.demonForm === 'panther' && Math.random() < 0.3) {
-        var otherRooms = [];
-        for (var i = 0; i < gameState.rooms.length; i++)
-            if (gameState.rooms[i].id !== room.id) otherRooms.push(gameState.rooms[i]);
-        if (otherRooms.length > 0) {
-            var or = otherRooms[Math.floor(Math.random() * otherRooms.length)];
-            var oep = or.entryPoints[Math.floor(Math.random() * or.entryPoints.length)];
-            if (oep.locked) {
-                setTimeout(function() {
-                    if (gameState.scene !== 'playing') return;
-                    oep.locked = false;
-                    gameState.msg = '🐾 PANTHER double swipe!';
-                    gameState.msgTimer = 1.4;
-                    gameState.bloodSplats.push({ x: oep.x + oep.w / 2, y: oep.y + oep.h / 2, life: 3 });
-                    updateHUD();
-                }, 260);
-            }
-        }
-    } else if (gameState.demonForm === 'dog' && Math.random() < 0.35) {
-        var others = [];
-        for (var j = 0; j < room.entryPoints.length; j++) {
-            if (room.entryPoints[j] !== ep && room.entryPoints[j].locked)
-                others.push(room.entryPoints[j]);
-        }
-        if (others.length > 0) {
-            var o = others[Math.floor(Math.random() * others.length)];
-            o.locked = false;
-            gameState.msg = '🐕 DOG bites another lock!';
-            gameState.msgTimer = 1.4;
-            gameState.bloodSplats.push({ x: o.x + o.w / 2, y: o.y + o.h / 2, life: 3 });
+    // entry is BROKEN → demon enters room
+    // check if family member is in this room
+    var roomIdx = gameState.rooms.indexOf(room);
+    for (var fi = 0; fi < gameState.family.length; fi++) {
+        var f = gameState.family[fi];
+        if (f.alive && f.roomIndex === roomIdx) {
+            f.alive = false;
+            gameState.scene = 'dead';
+            gameState.jumpscareTimer = 0;
+            gameState.jumpscareForm = gameState.demonForm;
+            gameState.deathReason = 'The demon killed ' + f.name + '!';
+            sfxScream();
+            gameState.shake = 2;
             updateHUD();
+            return;
         }
-    } else if (gameState.demonForm === 'wolf' && Math.random() < 0.45) {
-        gameState.flickerTimer = 1.0;
-        gameState.msg = '🐺 WOLF howls! Vision blurs...';
-        gameState.msgTimer = 1.5;
     }
+    // if player is in this room → death
+    if (gameState.roomIndex === roomIdx) {
+        gameState.scene = 'dead';
+        gameState.jumpscareTimer = 0;
+        gameState.jumpscareForm = gameState.demonForm;
+        gameState.deathReason = 'The demon caught YOU!';
+        sfxScream();
+        gameState.shake = 2;
+        return;
+    }
+    // empty room — demon just roams
+    gameState.msg = 'The demon is inside ' + room.name + '!';
+    gameState.msgTimer = 2;
 }
 
-// ============================================================
-// DRAWING PRIMITIVES
-// ============================================================
-function px(x, y, w, h, color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+// ============ PIXEL PRIMITIVE ============
+function px(x, y, w, h, color) { ctx.fillStyle = color; ctx.fillRect(Math.floor(x), Math.floor(y), w, h); }
+
+// ============ PENTAGRAM HELPER ============
+function drawPentagram(cx, cy, size, color, alpha, blur) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = blur || 12;
+    var pts = [];
+    for (var i = 0; i < 5; i++) {
+        var a = -Math.PI/2 + (i * 4 * Math.PI / 5) + Math.PI;
+        pts.push({ x: cx + Math.cos(a) * size, y: cy + Math.sin(a) * size });
+    }
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (var j = 1; j <= 5; j++) ctx.lineTo(pts[(j*2)%5].x, pts[(j*2)%5].y);
+    ctx.stroke();
+    // circle
+    ctx.beginPath(); ctx.arc(cx, cy, size, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
 }
 
-// ============================================================
-// TITLE SCREEN
-// ============================================================
+// ============ TITLE ============
 function drawTitle() {
     var grad = ctx.createLinearGradient(0, 0, 0, 600);
-    grad.addColorStop(0, '#0a0d12');
-    grad.addColorStop(1, '#1a0a0a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 900, 600);
-
+    grad.addColorStop(0, '#0a0510');
+    grad.addColorStop(1, '#2a0505');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 900, 600);
     ctx.fillStyle = '#5a6a80';
-    for (var i = 0; i < 60; i++) {
-        ctx.fillRect((i * 137) % 900, (i * 71) % 300, 2, 2);
-    }
-
-    ctx.fillStyle = '#dfe7f5';
-    ctx.beginPath(); ctx.arc(700, 120, 50, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#0a0d12';
-    ctx.beginPath(); ctx.arc(680, 105, 45, 0, Math.PI * 2); ctx.fill();
-
+    for (var i = 0; i < 60; i++) ctx.fillRect((i*137)%900, (i*71)%300, 2, 2);
+    // blood moon
+    ctx.fillStyle = '#a03030';
+    ctx.beginPath(); ctx.arc(700, 130, 55, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c85050';
+    ctx.beginPath(); ctx.arc(695, 125, 42, 0, Math.PI*2); ctx.fill();
+    // pentagram behind title
+    drawPentagram(450, 200, 130, '#8a1a1a', 0.3, 25);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 62px "Courier New", monospace';
+    ctx.font = 'bold 56px "Courier New", monospace';
     ctx.fillStyle = '#c94a4a';
-    ctx.shadowColor = '#ff2a2a';
-    ctx.shadowBlur = 20;
-    ctx.fillText('SURVIVE UNTIL', 450, 180);
-
+    ctx.shadowColor = '#ff2a2a'; ctx.shadowBlur = 25;
+    ctx.fillText('SURVIVE UNTIL', 450, 165);
     ctx.fillStyle = '#e0e0e0';
-    ctx.shadowColor = '#a0a0ff';
-    ctx.shadowBlur = 24;
-    ctx.font = 'bold 78px "Courier New", monospace';
-    ctx.fillText('6:00 AM', 450, 260);
+    ctx.shadowColor = '#a0a0ff'; ctx.shadowBlur = 28;
+    ctx.font = 'bold 74px "Courier New", monospace';
+    ctx.fillText('6:00 AM', 450, 240);
     ctx.shadowBlur = 0;
-
-    ctx.font = '18px "Courier New", monospace';
-    ctx.fillStyle = '#8a9aad';
-    ctx.fillText('A DEMON STALKS YOUR HOME', 450, 310);
-
-    var btnY = 400;
-    var btnH = 55;
+    ctx.font = '16px "Courier New", monospace';
+    ctx.fillStyle = '#8a6a6a';
+    ctx.fillText('THE BAPHOMET STALKS YOUR FAMILY', 450, 290);
+    var btnY = 400, btnH = 55;
     var btns = [
-        { x: 200, w: 140, label: 'EASY',      color: '#4a8a4a' },
-        { x: 360, w: 180, label: 'NORMAL',    color: '#a8803a' },
+        { x: 200, w: 140, label: 'EASY', color: '#4a8a4a' },
+        { x: 360, w: 180, label: 'NORMAL', color: '#a8803a' },
         { x: 560, w: 140, label: 'NIGHTMARE', color: '#8a2a2a' }
     ];
     for (var b = 0; b < btns.length; b++) {
         var btn = btns[b];
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(btn.x, btnY, btn.w, btnH);
-        ctx.strokeStyle = btn.color;
-        ctx.lineWidth = 3;
-        ctx.strokeRect(btn.x, btnY, btn.w, btnH);
-        ctx.fillStyle = btn.color;
-        ctx.font = 'bold 22px "Courier New", monospace';
-        ctx.fillText(btn.label, btn.x + btn.w / 2, btnY + 36);
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(btn.x, btnY, btn.w, btnH);
+        ctx.strokeStyle = btn.color; ctx.lineWidth = 3; ctx.strokeRect(btn.x, btnY, btn.w, btnH);
+        ctx.fillStyle = btn.color; ctx.font = 'bold 22px "Courier New", monospace';
+        ctx.fillText(btn.label, btn.x + btn.w/2, btnY + 36);
     }
-
-    ctx.font = '14px "Courier New", monospace';
-    ctx.fillStyle = '#556677';
+    ctx.font = '14px "Courier New", monospace'; ctx.fillStyle = '#556677';
     ctx.fillText('or press 1 / 2 / 3', 450, 490);
-
-    ctx.font = '16px "Courier New", monospace';
-    ctx.fillStyle = '#7a8a9a';
-    ctx.fillText('WALK TO EACH DOOR · LOCK IT · SURVIVE 6 HOURS', 450, 545);
+    ctx.font = '14px "Courier New", monospace'; ctx.fillStyle = '#7a8a9a';
+    ctx.fillText('PROTECT MOM · DAD · SISTER · SURVIVE 6 HOURS', 450, 545);
 }
 
-// ============================================================
-// HOUSE / ROOM DRAWING
-// ============================================================
+// ============ HOUSE ============
 function drawHouse() {
     var room = currentRoom();
-
-    ctx.fillStyle = room.wall;
-    ctx.fillRect(0, 0, 900, 600);
-    ctx.fillStyle = room.floor;
-    ctx.fillRect(0, 380, 900, 220);
-
-    // floorboards with shading
-    for (var i = 0; i < 900; i += 45) {
-        px(i, 380, 2, 220, 'rgba(0,0,0,0.35)');
-        px(i + 2, 380, 1, 220, 'rgba(255,255,255,0.04)');
-    }
-
-    // baseboard
+    ctx.fillStyle = room.wall; ctx.fillRect(0, 0, 900, 600);
+    ctx.fillStyle = room.floor; ctx.fillRect(0, 380, 900, 220);
+    for (var i = 0; i < 900; i += 45) { px(i, 380, 2, 220, 'rgba(0,0,0,0.35)'); px(i+2, 380, 1, 220, 'rgba(255,255,255,0.04)'); }
     px(0, 378, 900, 6, '#0a0808');
-    px(0, 384, 900, 2, 'rgba(255,255,255,0.05)');
-
-    // wall texture
-    for (var j = 0; j < 900; j += 65) {
-        for (var k = 0; k < 380; k += 65) {
-            if ((j + k) % 130 === 0) px(j, k, 32, 32, 'rgba(255,255,255,0.02)');
-        }
-    }
-
-    // objects behind
-    for (var oi = 0; oi < room.objects.length; oi++) {
-        drawObject(room.objects[oi]);
-    }
-
-    // entry points
-    for (var ei = 0; ei < room.entryPoints.length; ei++) {
-        drawEntryPoint(room.entryPoints[ei]);
-    }
-
-    // flashlight cone
+    // ambient pentagram on wall (occult)
+    drawPentagram(450, 130, 55, '#5a1a1a', 0.15, 8);
+    for (var oi = 0; oi < room.objects.length; oi++) drawObject(room.objects[oi]);
+    for (var ei = 0; ei < room.entryPoints.length; ei++) drawEntryPoint(room.entryPoints[ei]);
     if (gameState.flashlight) {
-        var cx = 450, cy = 500;
-        var grad = ctx.createRadialGradient(cx, cy, 30, cx, cy, 300);
-        grad.addColorStop(0,   'rgba(255,240,190,0.30)');
-        grad.addColorStop(0.5, 'rgba(255,220,150,0.10)');
-        grad.addColorStop(1,   'rgba(255,220,150,0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 900, 600);
+        var g = ctx.createRadialGradient(450, 500, 30, 450, 500, 300);
+        g.addColorStop(0, 'rgba(255,240,190,0.30)');
+        g.addColorStop(0.5, 'rgba(255,220,150,0.10)');
+        g.addColorStop(1, 'rgba(255,220,150,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 900, 600);
     }
-
-    // vignette
     var vg = ctx.createRadialGradient(450, 300, 200, 450, 300, 560);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.75)');
-    ctx.fillStyle = vg;
-    ctx.fillRect(0, 0, 900, 600);
-
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 22px "Courier New", monospace';
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.8)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, 900, 600);
+    ctx.textAlign = 'center'; ctx.font = 'bold 22px "Courier New", monospace';
     ctx.fillStyle = 'rgba(200,220,255,0.55)';
     ctx.fillText('· ' + room.name + ' ·', 450, 72);
 }
@@ -906,727 +746,645 @@ function drawObject(obj) {
     if (obj.type === 'bed') {
         px(obj.x, obj.y, obj.w, obj.h, '#2a1e1e');
         px(obj.x, obj.y, obj.w, 22, '#3a2828');
-        px(obj.x + 10, obj.y + 32, obj.w - 20, obj.h - 42, '#8a7a70');
-        px(obj.x + 10, obj.y + 32, obj.w - 20, 40, '#e0d8d0');
-        px(obj.x + 10, obj.y + 32, obj.w - 20, 3, '#b8b0a8');
+        px(obj.x+10, obj.y+32, obj.w-20, obj.h-42, '#8a7a70');
+        px(obj.x+10, obj.y+32, obj.w-20, 40, '#e0d8d0');
     } else if (obj.type === 'lamp') {
-        px(obj.x + 8, obj.y + 40, 14, 20, '#2a2a2a');
-        px(obj.x - 4, obj.y + 35, 38, 6, '#1a1a1a');
-        px(obj.x - 6, obj.y - 4, 42, 48, obj.on ? '#e8e0a0' : '#3a3a3a');
+        px(obj.x+8, obj.y+40, 14, 20, '#2a2a2a');
+        px(obj.x-4, obj.y+35, 38, 6, '#1a1a1a');
+        px(obj.x-6, obj.y-4, 42, 48, obj.on ? '#e8e0a0' : '#3a3a3a');
         if (obj.on) {
-            px(obj.x - 4, obj.y - 2, 38, 4, '#fff4c0');
-            var g = ctx.createRadialGradient(obj.x + 15, obj.y + 20, 5, obj.x + 15, obj.y + 20, 200);
-            g.addColorStop(0, 'rgba(255,240,150,0.35)');
-            g.addColorStop(1, 'rgba(255,240,150,0)');
-            ctx.fillStyle = g;
-            ctx.fillRect(obj.x - 200, obj.y - 200, 430, 430);
+            var g = ctx.createRadialGradient(obj.x+15, obj.y+20, 5, obj.x+15, obj.y+20, 200);
+            g.addColorStop(0, 'rgba(255,240,150,0.35)'); g.addColorStop(1, 'rgba(255,240,150,0)');
+            ctx.fillStyle = g; ctx.fillRect(obj.x-200, obj.y-200, 430, 430);
         }
     } else if (obj.type === 'painting') {
         px(obj.x, obj.y, obj.w, obj.h, '#3a2a1a');
-        px(obj.x + 5, obj.y + 5, obj.w - 10, obj.h - 10, '#5a4a3a');
-        px(obj.x + 15, obj.y + 20, obj.w - 30, obj.h - 40, '#2a1a0a');
-        px(obj.x + 20, obj.y + 25, 8, 8, '#4a3a2a');
-        px(obj.x + obj.w - 30, obj.y + obj.h - 35, 10, 10, '#3a2a1a');
+        px(obj.x+5, obj.y+5, obj.w-10, obj.h-10, '#5a4a3a');
+        px(obj.x+15, obj.y+20, obj.w-30, obj.h-40, '#2a1a0a');
+    } else if (obj.type === 'pentagram') {
+        px(obj.x, obj.y, obj.w, obj.h, '#1a0a0a');
+        px(obj.x+3, obj.y+3, obj.w-6, obj.h-6, '#2a0a0a');
+        drawPentagram(obj.x+obj.w/2, obj.y+obj.h/2, 32, '#c92a2a', 0.7, 15);
     } else if (obj.type === 'counter') {
         px(obj.x, obj.y, obj.w, obj.h, '#3a2a1a');
         px(obj.x, obj.y, obj.w, 10, '#8a7a6a');
-        px(obj.x, obj.y, obj.w, 3, '#a89a88');
-        for (var c = 0; c < 3; c++) {
-            px(obj.x + 20 + c * 60, obj.y + 25, 40, 5, '#2a1a0a');
-        }
     } else if (obj.type === 'fridge') {
         px(obj.x, obj.y, obj.w, obj.h, '#8a8a90');
-        px(obj.x + 4, obj.y + 4, obj.w - 8, obj.h - 8, '#b8b8c0');
-        px(obj.x + 4, obj.y + 4, obj.w - 8, 3, '#d8d8e0');
-        px(obj.x + obj.w - 14, obj.y + 30, 5, 45, '#3a3a3a');
-        px(obj.x + obj.w - 14, obj.y + 90, 5, 30, '#3a3a3a');
+        px(obj.x+4, obj.y+4, obj.w-8, obj.h-8, '#b8b8c0');
+        px(obj.x+obj.w-14, obj.y+30, 5, 45, '#3a3a3a');
     } else if (obj.type === 'sofa') {
         px(obj.x, obj.y, obj.w, obj.h, '#2a1a2a');
         px(obj.x, obj.y, obj.w, 22, '#4a2a4a');
-        px(obj.x + 12, obj.y + 28, obj.w - 24, obj.h - 40, '#6a406a');
-        px(obj.x + 12, obj.y + 28, obj.w - 24, 3, '#8a6090');
-        px(obj.x, obj.y + obj.h, 20, 10, '#1a0a1a');
-        px(obj.x + obj.w - 20, obj.y + obj.h, 20, 10, '#1a0a1a');
+        px(obj.x+12, obj.y+28, obj.w-24, obj.h-40, '#6a406a');
     } else if (obj.type === 'tv') {
         px(obj.x, obj.y, obj.w, obj.h, '#0a0a0a');
-        px(obj.x + 5, obj.y + 5, obj.w - 10, obj.h - 20, obj.on ? '#4a8aff' : '#050505');
+        px(obj.x+5, obj.y+5, obj.w-10, obj.h-20, obj.on ? '#4a8aff' : '#050505');
         if (obj.on) {
-            for (var s = 0; s < 20; s++) {
-                ctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.3) + ')';
-                ctx.fillRect(obj.x + 8 + Math.random() * (obj.w - 16), obj.y + 8 + Math.random() * (obj.h - 25), 4, 3);
-            }
-            ctx.save();
-            ctx.shadowColor = '#4a8aff';
-            ctx.shadowBlur = 30;
-            ctx.fillStyle = 'rgba(74,138,255,0.15)';
-            ctx.fillRect(obj.x - 20, obj.y - 20, obj.w + 40, obj.h + 40);
-            ctx.restore();
+            for (var s = 0; s < 20; s++) { ctx.fillStyle = 'rgba(255,255,255,' + (Math.random()*0.3) + ')'; ctx.fillRect(obj.x+8+Math.random()*(obj.w-16), obj.y+8+Math.random()*(obj.h-25), 4, 3); }
         }
-        px(obj.x + obj.w / 2 - 25, obj.y + obj.h - 15, 50, 15, '#1a1a1a');
-        px(obj.x + obj.w / 2 - 30, obj.y + obj.h, 60, 5, '#0a0a0a');
     }
 }
 
 function drawEntryPoint(ep) {
-    var baseColor = ep.type === 'door' ? '#2a1f1a'
-                  : ep.type === 'window' ? '#0a0f18'
-                  : '#1a1a1a';
+    var baseColor = ep.type === 'door' ? '#2a1f1a' : ep.type === 'window' ? '#0a0f18' : '#1a1a1a';
     px(ep.x, ep.y, ep.w, ep.h, baseColor);
-
-    // frame with highlight
-    ctx.strokeStyle = '#5b4a3a';
-    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#5b4a3a'; ctx.lineWidth = 6;
     ctx.strokeRect(ep.x, ep.y, ep.w, ep.h);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(ep.x + 4, ep.y + 4, ep.w - 8, ep.h - 8);
-
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+    ctx.strokeRect(ep.x+4, ep.y+4, ep.w-8, ep.h-8);
     if (ep.type === 'window') {
-        var moonAlpha = 0.22 - gameState.moonFlicker * 0.5;
-        if (moonAlpha < 0.05) moonAlpha = 0.05;
-        ctx.fillStyle = 'rgba(180,210,255,' + moonAlpha + ')';
-        ctx.fillRect(ep.x + 4, ep.y + 4, ep.w - 8, ep.h - 8);
-        // stars outside
-        for (var st = 0; st < 8; st++) {
-            ctx.fillStyle = 'rgba(255,255,255,' + (0.3 + Math.random() * 0.3) + ')';
-            ctx.fillRect(ep.x + 10 + (st * 17) % (ep.w - 20), ep.y + 10 + (st * 23) % (ep.h - 20), 2, 2);
-        }
-        // crossbars
-        px(ep.x + ep.w / 2 - 3, ep.y, 6, ep.h, '#5b4a3a');
-        px(ep.x, ep.y + ep.h / 2 - 3, ep.w, 6, '#5b4a3a');
+        var ma = Math.max(0.05, 0.22 - gameState.moonFlicker * 0.5);
+        ctx.fillStyle = 'rgba(180,210,255,' + ma + ')'; ctx.fillRect(ep.x+4, ep.y+4, ep.w-8, ep.h-8);
+        for (var st = 0; st < 8; st++) { ctx.fillStyle = 'rgba(255,255,255,' + (0.3+Math.random()*0.3) + ')'; ctx.fillRect(ep.x+10+(st*17)%(ep.w-20), ep.y+10+(st*23)%(ep.h-20), 2, 2); }
+        px(ep.x + ep.w/2 - 3, ep.y, 6, ep.h, '#5b4a3a');
+        px(ep.x, ep.y + ep.h/2 - 3, ep.w, 6, '#5b4a3a');
     } else if (ep.type === 'door') {
-        // panels with shading
-        px(ep.x + 12, ep.y + 15, ep.w - 24, 70, '#241a15');
-        px(ep.x + 12, ep.y + 15, ep.w - 24, 3, '#3a2a20');
-        px(ep.x + 12, ep.y + 100, ep.w - 24, 70, '#241a15');
-        px(ep.x + 12, ep.y + 100, ep.w - 24, 3, '#3a2a20');
-        // handle
+        px(ep.x+12, ep.y+15, ep.w-24, 70, '#241a15');
+        px(ep.x+12, ep.y+100, ep.w-24, 70, '#241a15');
         ctx.fillStyle = '#c9a86a';
-        ctx.beginPath();
-        ctx.arc(ep.x + ep.w - 20, ep.y + ep.h / 2, 8, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(ep.x+ep.w-20, ep.y+ep.h/2, 8, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#7a5f3a';
-        ctx.beginPath();
-        ctx.arc(ep.x + ep.w - 20, ep.y + ep.h / 2, 4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(ep.x+ep.w-20, ep.y+ep.h/2, 4, 0, Math.PI*2); ctx.fill();
     } else if (ep.type === 'vent') {
-        for (var s = 0; s < 6; s++) {
-            px(ep.x + 8, ep.y + 15 + s * 22, ep.w - 16, 6, '#3a3a3a');
-            px(ep.x + 8, ep.y + 15 + s * 22, ep.w - 16, 2, '#4a4a4a');
-        }
-        // screws
-        px(ep.x + 10, ep.y + 8, 4, 4, '#2a2a2a');
-        px(ep.x + ep.w - 14, ep.y + 8, 4, 4, '#2a2a2a');
-        px(ep.x + 10, ep.y + ep.h - 12, 4, 4, '#2a2a2a');
-        px(ep.x + ep.w - 14, ep.y + ep.h - 12, 4, 4, '#2a2a2a');
+        for (var s = 0; s < 6; s++) { px(ep.x+8, ep.y+15+s*22, ep.w-16, 6, '#3a3a3a'); px(ep.x+8, ep.y+15+s*22, ep.w-16, 2, '#4a4a4a'); }
     }
-
-    // padlock indicator
-    var lx = ep.x + ep.w / 2;
-    var ly = ep.y - 24;
+    // padlock
+    var lx = ep.x + ep.w/2, ly = ep.y - 24;
     if (ep.locked) {
-        ctx.strokeStyle = '#c0c0c0';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(lx, ly - 6, 8, Math.PI, 0);
-        ctx.stroke();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(lx, ly - 6, 8, Math.PI, 0);
-        ctx.stroke();
-
-        px(lx - 10, ly - 2, 20, 16, '#e5b13b');
-        px(lx - 10, ly - 2, 20, 3, '#f0d060');
-        px(lx - 10, ly + 11, 20, 3, '#a8803a');
-        ctx.strokeStyle = '#1e1e1e';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(lx - 10, ly - 2, 20, 16);
-        px(lx - 2, ly + 3, 4, 7, '#1e1e1e');
+        ctx.strokeStyle = '#c0c0c0'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(lx, ly-6, 8, Math.PI, 0); ctx.stroke();
+        px(lx-10, ly-2, 20, 16, '#e5b13b');
+        px(lx-10, ly-2, 20, 3, '#f0d060');
+        ctx.strokeStyle = '#1e1e1e'; ctx.lineWidth = 2;
+        ctx.strokeRect(lx-10, ly-2, 20, 16);
+        px(lx-2, ly+3, 4, 7, '#1e1e1e');
     } else {
-        ctx.strokeStyle = '#5a5a5a';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(lx - 6, ly - 8, 6, Math.PI * 0.7, Math.PI * 1.5);
-        ctx.stroke();
-        px(lx - 10, ly - 2, 20, 16, '#4a3a2a');
-        ctx.strokeStyle = '#1e1e1e';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(lx - 10, ly - 2, 20, 16);
-        px(lx - 2, ly + 3, 4, 7, '#1e1e1e');
-        // crack
-        px(lx - 12, ly + 3, 4, 2, '#1a1008');
-        px(lx - 14, ly + 6, 3, 3, '#1a1008');
+        ctx.strokeStyle = '#5a5a5a'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(lx-6, ly-8, 6, Math.PI*0.7, Math.PI*1.5); ctx.stroke();
+        px(lx-10, ly-2, 20, 16, '#4a3a2a');
+        ctx.strokeStyle = '#1e1e1e'; ctx.lineWidth = 2;
+        ctx.strokeRect(lx-10, ly-2, 20, 16);
     }
-
-    // barricade planks
     for (var b = 0; b < ep.barricade; b++) {
-        var py = ep.y + 20 + b * 35;
-        px(ep.x - 8, py, ep.w + 16, 14, '#7a5a2a');
-        px(ep.x - 8, py, ep.w + 16, 3, '#a8803a');
-        px(ep.x - 8, py + 11, ep.w + 16, 3, '#4a3a1a');
-        // nails
-        px(ep.x + 6, py + 4, 4, 4, '#2a1a0a');
-        px(ep.x + ep.w - 10, py + 4, 4, 4, '#2a1a0a');
+        var py = ep.y + 20 + b*35;
+        px(ep.x-8, py, ep.w+16, 14, '#7a5a2a');
+        px(ep.x-8, py, ep.w+16, 3, '#a8803a');
+        px(ep.x+6, py+4, 4, 4, '#2a1a0a');
+        px(ep.x+ep.w-10, py+4, 4, 4, '#2a1a0a');
     }
-
-    // label
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.textAlign = 'center'; ctx.font = 'bold 12px "Courier New", monospace';
     ctx.fillStyle = ep.locked ? '#c9e0a0' : '#c96f6f';
     ctx.fillText(ep.label, lx, ep.y + ep.h + 18);
-
-    // blood splats
     for (var i = 0; i < gameState.bloodSplats.length; i++) {
         var bs = gameState.bloodSplats[i];
-        var dx = bs.x - lx, dy = bs.y - ly;
-        if (Math.abs(dx) < ep.w / 2 + 20 && Math.abs(dy) < ep.h / 2 + 20) {
-            var alpha = Math.min(1, bs.life / 3);
+        if (Math.abs(bs.x-lx) < ep.w/2+20 && Math.abs(bs.y-ly) < ep.h/2+20) {
+            var alpha = Math.min(1, bs.life/3);
             ctx.fillStyle = 'rgba(120,10,20,' + alpha + ')';
-            ctx.beginPath();
-            ctx.arc(bs.x, bs.y, 18 * alpha + 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'rgba(80,0,10,' + alpha + ')';
-            ctx.beginPath();
-            ctx.arc(bs.x - 4, bs.y + 3, 8 * alpha + 2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(bs.x, bs.y, 18*alpha+4, 0, Math.PI*2); ctx.fill();
         }
     }
 }
 
-// ============================================================
-// PLAYER SPRITE (the kid)
-// ============================================================
+// ============ PLAYER SPRITE ============
 function drawPlayer() {
     var p = gameState.player;
-    var cx = Math.floor(p.x);
-    var cy = p.y;
-    var facing = p.facing;
-
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + 4, 26, 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-
+    var cx = Math.floor(p.x), cy = p.y, facing = p.facing;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath(); ctx.ellipse(cx, cy+4, 26, 8, 0, 0, Math.PI*2); ctx.fill();
     var breathe = Math.sin(p.idleBreathe * 3) * 1;
-
-    // walking animation
     var walking = p.state === 'walking';
     var walkPhase = Math.sin(p.walkTimer * 14);
     var bob = walking ? Math.abs(Math.sin(p.walkTimer * 14)) * 2 : 0;
     var legOffset = walking ? walkPhase * 4 : 0;
     var armSwing = walking ? walkPhase * 4 : 0;
-
-    // locking animation: lean forward, one arm up
     var locking = p.state === 'locking';
     var lockProgress = locking ? (1 - p.lockTimer / 0.55) : 0;
     var lean = locking ? Math.sin(lockProgress * Math.PI) * 3 : 0;
     var reachArm = locking ? Math.sin(lockProgress * Math.PI) * 22 : 0;
-
-    // base position (feet at cy)
     var baseY = cy - bob;
-
-    // ============ LEGS ============
-    // left leg
-    px(cx - 14, baseY - 20 + legOffset, 10, 20, '#2a3040');
-    px(cx - 14, baseY - 20 + legOffset, 10, 4, '#3a4050');
-    // right leg
-    px(cx + 4, baseY - 20 - legOffset, 10, 20, '#2a3040');
-    px(cx + 4, baseY - 20 - legOffset, 10, 4, '#3a4050');
-    // shoes
-    px(cx - 16, baseY - 2 + legOffset, 14, 6, '#1a1010');
-    px(cx + 2, baseY - 2 - legOffset, 14, 6, '#1a1010');
-    px(cx - 16, baseY - 2 + legOffset, 14, 2, '#3a2020');
-    px(cx + 2, baseY - 2 - legOffset, 14, 2, '#3a2020');
-
-    // ============ TORSO ============
+    // legs
+    px(cx-14, baseY-20+legOffset, 10, 20, '#2a3040');
+    px(cx-14, baseY-20+legOffset, 10, 4, '#3a4050');
+    px(cx+4, baseY-20-legOffset, 10, 20, '#2a3040');
+    px(cx+4, baseY-20-legOffset, 10, 4, '#3a4050');
+    px(cx-16, baseY-2+legOffset, 14, 6, '#1a1010');
+    px(cx+2, baseY-2-legOffset, 14, 6, '#1a1010');
+    // torso
     var torsoY = baseY - 46;
-    // shirt
-    px(cx - 14, torsoY, 28, 26, '#5a7090');
-    px(cx - 14, torsoY, 28, 4, '#7a90b0');
-    px(cx - 14, torsoY + 22, 28, 4, '#3a5070');
-    // shirt stripe
-    px(cx - 14, torsoY + 12, 28, 3, '#3a5070');
-
-    // ============ ARMS ============
-    // left arm (opposite to right)
-    px(cx - 20, torsoY + 4 + armSwing, 8, 20, '#5a7090');
-    px(cx - 20, torsoY + 4 + armSwing, 8, 3, '#7a90b0');
-    // left hand
-    px(cx - 20, torsoY + 22 + armSwing, 8, 6, '#e8c0a0');
-
-    // right arm — with reach
+    px(cx-14, torsoY, 28, 26, '#5a7090');
+    px(cx-14, torsoY, 28, 4, '#7a90b0');
+    px(cx-14, torsoY+22, 28, 4, '#3a5070');
+    // arms
+    px(cx-20, torsoY+4+armSwing, 8, 20, '#5a7090');
+    px(cx-20, torsoY+22+armSwing, 8, 6, '#e8c0a0');
     var rightArmY = torsoY + 4 - armSwing;
     if (locking) {
-        // arm reaches up toward lock
-        px(cx + 14, rightArmY - reachArm, 8, 20 - reachArm * 0.5, '#5a7090');
-        px(cx + 14, rightArmY - reachArm - 6, 8, 8, '#e8c0a0');
-        // small lock flash at fingertip
+        px(cx+14, rightArmY-reachArm, 8, 20-reachArm*0.5, '#5a7090');
+        px(cx+14, rightArmY-reachArm-6, 8, 8, '#e8c0a0');
         if (lockProgress > 0.6) {
-            ctx.fillStyle = 'rgba(255,220,100,' + ((lockProgress - 0.6) * 2.5) + ')';
-            ctx.beginPath();
-            ctx.arc(cx + 18, rightArmY - reachArm - 10, 6, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = 'rgba(255,220,100,' + ((lockProgress-0.6)*2.5) + ')';
+            ctx.beginPath(); ctx.arc(cx+18, rightArmY-reachArm-10, 6, 0, Math.PI*2); ctx.fill();
         }
     } else {
-        px(cx + 14, rightArmY, 8, 20, '#5a7090');
-        px(cx + 14, rightArmY, 8, 3, '#7a90b0');
-        px(cx + 14, rightArmY + 18, 8, 6, '#e8c0a0');
+        px(cx+14, rightArmY, 8, 20, '#5a7090');
+        px(cx+14, rightArmY+18, 8, 6, '#e8c0a0');
     }
-
-    // ============ HEAD ============
-    var headY = torsoY - 26 + breathe * 0.5 + lean;
-    // neck
-    px(cx - 4, torsoY - 2, 8, 4, '#d8b090');
-    // face
-    px(cx - 12, headY, 24, 24, '#f0c8a0');
-    // face shading
-    px(cx - 12, headY, 24, 3, '#f8d8b0');
-    px(cx - 12, headY + 21, 24, 3, '#d0a880');
-    // hair
-    px(cx - 13, headY - 4, 26, 10, '#3a2010');
-    px(cx - 13, headY - 4, 26, 3, '#5a3820');
-    // side hair
-    px(cx - 14, headY + 2, 4, 12, '#3a2010');
-    px(cx + 10, headY + 2, 4, 12, '#3a2010');
-
-    // eyes (facing dependent)
+    // head
+    var headY = torsoY - 26 + breathe*0.5 + lean;
+    px(cx-4, torsoY-2, 8, 4, '#d8b090');
+    px(cx-12, headY, 24, 24, '#f0c8a0');
+    px(cx-12, headY, 24, 3, '#f8d8b0');
+    px(cx-13, headY-4, 26, 10, '#3a2010');
+    px(cx-13, headY-4, 26, 3, '#5a3820');
     if (facing === 1) {
-        // looking right
-        px(cx - 2, headY + 10, 4, 5, '#1a1010');
-        px(cx + 6, headY + 10, 4, 5, '#1a1010');
-        px(cx - 2, headY + 10, 2, 2, '#ffffff');
-        px(cx + 6, headY + 10, 2, 2, '#ffffff');
+        px(cx-2, headY+10, 4, 5, '#1a1010');
+        px(cx+6, headY+10, 4, 5, '#1a1010');
+        px(cx-2, headY+10, 2, 2, '#fff');
+        px(cx+6, headY+10, 2, 2, '#fff');
     } else {
-        // looking left
-        px(cx - 6, headY + 10, 4, 5, '#1a1010');
-        px(cx + 2, headY + 10, 4, 5, '#1a1010');
-        px(cx - 6, headY + 10, 2, 2, '#ffffff');
-        px(cx + 2, headY + 10, 2, 2, '#ffffff');
+        px(cx-6, headY+10, 4, 5, '#1a1010');
+        px(cx+2, headY+10, 4, 5, '#1a1010');
+        px(cx-6, headY+10, 2, 2, '#fff');
+        px(cx+2, headY+10, 2, 2, '#fff');
     }
-
-    // mouth
-    px(cx - 3, headY + 18, 6, 2, '#8a5040');
-
-    // ============ PROXIMITY HINT ============
-    var nearest = findNearestEntry();
-    if (nearest && p.state !== 'locking') {
-        var pDist = Math.abs(p.x - nearest.anchorX);
-        var alpha = Math.max(0, 1 - pDist / INTERACT_RANGE) * 0.9;
-        if (alpha > 0.1) {
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = '#f0e0a0';
-            ctx.font = 'bold 14px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('[E]', cx, headY - 20 + Math.sin(Date.now() * 0.01) * 3);
-            ctx.restore();
-        }
+    px(cx-3, headY+18, 6, 2, '#8a5040');
+    // interact hint
+    var near = findNearestInteractable();
+    if (near && p.state !== 'locking') {
+        var label = near.kind === 'family' ? '[E] GUIDE' : '[E]';
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = near.kind === 'family' ? '#a0e0a0' : '#f0e0a0';
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, cx, headY - 20 + Math.sin(Date.now()*0.01)*3);
+        ctx.restore();
     }
 }
 
-// ============================================================
-// DEMON SPRITES (upgraded)
-// ============================================================
+// ============ FAMILY SPRITES ============
+function drawFamilyMembers() {
+    for (var i = 0; i < gameState.family.length; i++) {
+        var f = gameState.family[i];
+        if (!f.alive) continue;
+        if (f.roomIndex !== gameState.roomIndex) continue;
+        drawFamilySprite(f);
+    }
+}
+function drawFamilySprite(f) {
+    var cx = Math.floor(f.x), cy = FLOOR_Y;
+    var facing = f.facing;
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath(); ctx.ellipse(cx, cy+4, 26, 8, 0, 0, Math.PI*2); ctx.fill();
+    var walking = f.walkTimer > 0;
+    var walkPhase = walking ? Math.sin(f.walkTimer * 14) : 0;
+    var bob = walking ? Math.abs(walkPhase) * 2 : 0;
+    var legOffset = walking ? walkPhase * 4 : 0;
+    var armSwing = walking ? walkPhase * 4 : 0;
+    var breathe = Math.sin(f.breathe * 3) * 1;
+    var baseY = cy - bob;
+    if (f.id === 'mom') {
+        // MOM — dress, longer hair, taller
+        px(cx-14, baseY-22+legOffset, 10, 22, '#3a2a2a');
+        px(cx+4, baseY-22-legOffset, 10, 22, '#3a2a2a');
+        // dress
+        px(cx-16, baseY-52, 32, 32, '#7a3a5a');
+        px(cx-16, baseY-52, 32, 4, '#9a5a7a');
+        px(cx-16, baseY-24, 32, 4, '#5a2a3a');
+        // skirt flare
+        px(cx-20, baseY-24, 40, 6, '#7a3a5a');
+        // arms
+        px(cx-22, baseY-48+armSwing, 8, 22, '#e8b090');
+        px(cx+14, baseY-48-armSwing, 8, 22, '#e8b090');
+        // head
+        var headY = baseY - 78;
+        px(cx-4, baseY-56, 8, 6, '#d8a080');
+        px(cx-12, headY, 24, 26, '#f0c8a0');
+        // long hair
+        px(cx-14, headY-4, 28, 12, '#5a2a10');
+        px(cx-16, headY+4, 6, 30, '#5a2a10');
+        px(cx+10, headY+4, 6, 30, '#5a2a10');
+        // eyes
+        if (facing === 1) { px(cx-2, headY+12, 4, 4, '#1a1010'); px(cx+6, headY+12, 4, 4, '#1a1010'); }
+        else { px(cx-6, headY+12, 4, 4, '#1a1010'); px(cx+2, headY+12, 4, 4, '#1a1010'); }
+        px(cx-3, headY+20, 6, 2, '#a05050');
+    } else if (f.id === 'dad') {
+        // DAD — broader, taller
+        px(cx-16, baseY-22+legOffset, 12, 22, '#2a2a3a');
+        px(cx+4, baseY-22-legOffset, 12, 22, '#2a2a3a');
+        // torso broader
+        px(cx-18, baseY-56, 36, 34, '#3a4a6a');
+        px(cx-18, baseY-56, 36, 4, '#5a6a8a');
+        px(cx-18, baseY-24, 36, 4, '#2a3a4a');
+        // arms
+        px(cx-24, baseY-52+armSwing, 8, 26, '#e8b090');
+        px(cx+16, baseY-52-armSwing, 8, 26, '#e8b090');
+        // head
+        var headY = baseY - 84;
+        px(cx-4, baseY-60, 8, 6, '#d8a080');
+        px(cx-12, headY, 24, 26, '#f0c8a0');
+        // short hair
+        px(cx-13, headY-4, 26, 8, '#2a1a0a');
+        // stubble
+        px(cx-8, headY+20, 16, 4, '#3a2a1a');
+        // eyes
+        if (facing === 1) { px(cx-2, headY+12, 4, 4, '#1a1010'); px(cx+6, headY+12, 4, 4, '#1a1010'); }
+        else { px(cx-6, headY+12, 4, 4, '#1a1010'); px(cx+2, headY+12, 4, 4, '#1a1010'); }
+    } else {
+        // SISTER — smaller, pigtails, pink
+        px(cx-10, baseY-18+legOffset, 8, 18, '#3a2a4a');
+        px(cx+2, baseY-18-legOffset, 8, 18, '#3a2a4a');
+        // small dress
+        px(cx-12, baseY-46, 24, 30, '#e08ab0');
+        px(cx-12, baseY-46, 24, 4, '#f0a8c8');
+        px(cx-14, baseY-20, 28, 5, '#e08ab0');
+        // arms
+        px(cx-16, baseY-42+armSwing, 6, 18, '#f0c8a0');
+        px(cx+10, baseY-42-armSwing, 6, 18, '#f0c8a0');
+        // head
+        var headY = baseY - 68;
+        px(cx-3, baseY-50, 6, 6, '#d8a080');
+        px(cx-10, headY, 20, 22, '#f0c8a0');
+        // hair with pigtails
+        px(cx-11, headY-4, 22, 10, '#a06030');
+        px(cx-14, headY-2, 6, 14, '#a06030');
+        px(cx+8, headY-2, 6, 14, '#a06030');
+        // bow
+        px(cx-14, headY+4, 6, 4, '#ff3a7a');
+        px(cx+8, headY+4, 6, 4, '#ff3a7a');
+        // big eyes
+        if (facing === 1) { px(cx-2, headY+10, 4, 5, '#1a1010'); px(cx+5, headY+10, 4, 5, '#1a1010'); px(cx-2, headY+10, 2, 2, '#fff'); px(cx+5, headY+10, 2, 2, '#fff'); }
+        else { px(cx-5, headY+10, 4, 5, '#1a1010'); px(cx+2, headY+10, 4, 5, '#1a1010'); px(cx-5, headY+10, 2, 2, '#fff'); px(cx+2, headY+10, 2, 2, '#fff'); }
+    }
+}
+
+// ============ BAPHOMET DEMON ============
 function drawDemon() {
     var form = gameState.demonForm;
     var baseX = 450;
-    var baseY = 130 + gameState.demonBob;
+    var baseY = 140 + gameState.demonBob;
     var attacking = gameState.demonPose === 'attack';
     var wobble = attacking ? Math.sin(Date.now() * 0.05) * 6 : 0;
     var bx = baseX + wobble;
-
     var alpha = 1;
     if (gameState.flickerTimer > 0) alpha = 0.4 + Math.abs(Math.sin(Date.now() * 0.04)) * 0.6;
-
     ctx.save();
     ctx.globalAlpha = alpha;
-
-    // dark aura (double layer)
-    var auraGrad = ctx.createRadialGradient(bx, baseY, 30, bx, baseY, 130);
-    auraGrad.addColorStop(0, 'rgba(60,10,10,0.9)');
+    // dark hellish aura
+    var auraGrad = ctx.createRadialGradient(bx, baseY, 30, bx, baseY, 150);
+    auraGrad.addColorStop(0, 'rgba(60,10,10,0.95)');
     auraGrad.addColorStop(0.5, 'rgba(30,5,5,0.7)');
     auraGrad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = auraGrad;
-    ctx.beginPath(); ctx.arc(bx, baseY, 130, 0, Math.PI * 2); ctx.fill();
-
-    // inner shadow
+    ctx.beginPath(); ctx.arc(bx, baseY, 150, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#1a0505';
-    ctx.beginPath(); ctx.arc(bx, baseY, 90, 0, Math.PI * 2); ctx.fill();
-
-    // floating embers
-    for (var i = 0; i < 6; i++) {
-        var t = (Date.now() * 0.001 + i * 1.3) % 3;
-        var ex = bx + Math.sin(Date.now() * 0.002 + i) * 60;
-        var ey = baseY + 60 - t * 40;
-        var ea = Math.max(0, 1 - t / 3);
-        ctx.fillStyle = 'rgba(255,120,40,' + (ea * 0.5) + ')';
-        ctx.fillRect(ex, ey, 3, 3);
+    ctx.beginPath(); ctx.arc(bx, baseY, 95, 0, Math.PI*2); ctx.fill();
+    // floating pentagram behind demon (the Baphomet sigil)
+    drawPentagram(bx, baseY, 110, gameState.demonForm === 'baphomet' ? '#ff2a2a' : gameState.demonForm === 'panther' ? '#ff2a8c' : '#f0e13b', 0.55, 18);
+    // hellfire embers
+    for (var i = 0; i < 10; i++) {
+        var t = (Date.now() * 0.001 + i * 1.1) % 3;
+        var ex = bx + Math.sin(Date.now()*0.002 + i) * 70;
+        var ey = baseY + 70 - t * 55;
+        var ea = Math.max(0, 1 - t/3);
+        ctx.fillStyle = 'rgba(255,120,40,' + (ea * 0.6) + ')';
+        ctx.fillRect(ex, ey, 4, 4);
+        ctx.fillStyle = 'rgba(255,220,80,' + (ea * 0.4) + ')';
+        ctx.fillRect(ex+1, ey+1, 2, 2);
     }
-
     var breathe = 1 + Math.sin(Date.now() * 0.004) * 0.02;
-    ctx.translate(bx, baseY);
-    ctx.scale(breathe, breathe);
-    ctx.translate(-bx, -baseY);
-
-    if (form === 'panther') drawPanther(bx, baseY, attacking);
-    else if (form === 'dog') drawDog(bx, baseY, attacking);
-    else drawWolf(bx, baseY, attacking);
-
+    ctx.translate(bx, baseY); ctx.scale(breathe, breathe); ctx.translate(-bx, -baseY);
+    if (form === 'baphomet') drawBaphomet(bx, baseY, attacking);
+    else if (form === 'panther') drawBaphometPanther(bx, baseY, attacking);
+    else drawBaphometWolf(bx, baseY, attacking);
     ctx.restore();
 }
 
-function drawPanther(bx, by, attacking) {
+// ---- Full Baphomet form: goat head, horns, humanoid torso, wings ----
+function drawBaphomet(bx, by, attacking) {
+    // WINGS
+    ctx.fillStyle = '#0f0505';
+    ctx.beginPath();
+    ctx.moveTo(bx-40, by-10);
+    ctx.lineTo(bx-130, by-70);
+    ctx.lineTo(bx-120, by-20);
+    ctx.lineTo(bx-140, by+10);
+    ctx.lineTo(bx-100, by+20);
+    ctx.lineTo(bx-60, by+10);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1a0808';
+    ctx.beginPath();
+    ctx.moveTo(bx-50, by-5);
+    ctx.lineTo(bx-115, by-55);
+    ctx.lineTo(bx-105, by-15);
+    ctx.lineTo(bx-115, by+5);
+    ctx.lineTo(bx-80, by+10);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#0f0505';
+    ctx.beginPath();
+    ctx.moveTo(bx+40, by-10);
+    ctx.lineTo(bx+130, by-70);
+    ctx.lineTo(bx+120, by-20);
+    ctx.lineTo(bx+140, by+10);
+    ctx.lineTo(bx+100, by+20);
+    ctx.lineTo(bx+60, by+10);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1a0808';
+    ctx.beginPath();
+    ctx.moveTo(bx+50, by-5);
+    ctx.lineTo(bx+115, by-55);
+    ctx.lineTo(bx+105, by-15);
+    ctx.lineTo(bx+115, by+5);
+    ctx.lineTo(bx+80, by+10);
+    ctx.closePath(); ctx.fill();
+
+    // BODY — humanoid torso
+    px(bx-38, by-30, 76, 90, '#2a1010');
+    px(bx-38, by-30, 76, 6, '#4a1a1a');
+    px(bx-30, by-20, 20, 60, '#3a1515');
+    px(bx+10, by-20, 20, 60, '#3a1515');
+    // inverted cross on chest
+    px(bx-3, by-10, 6, 25, '#8a1a1a');
+    px(bx-12, by-2, 24, 5, '#8a1a1a');
+    // legs (goat-like)
+    px(bx-30, by+58, 14, 40, '#1a0808');
+    px(bx+16, by+58, 14, 40, '#1a0808');
+    // hooves
+    ctx.fillStyle = '#0a0505';
+    ctx.beginPath(); ctx.moveTo(bx-32, by+96); ctx.lineTo(bx-14, by+96); ctx.lineTo(bx-14, by+104); ctx.lineTo(bx-34, by+104); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bx+14, by+96); ctx.lineTo(bx+32, by+96); ctx.lineTo(bx+34, by+104); ctx.lineTo(bx+14, by+104); ctx.closePath(); ctx.fill();
+
+    // HEAD (goat-like)
+    px(bx-30, by-90, 60, 62, '#0f0505');
+    px(bx-30, by-90, 60, 5, '#2a1010');
+    // snout (elongated)
+    px(bx-14, by-40, 28, 20, '#0a0303');
+    px(bx-14, by-40, 28, 3, '#1a0808');
+    // nostrils
+    px(bx-6, by-32, 4, 3, '#000');
+    px(bx+2, by-32, 4, 3, '#000');
+    // mouth (goat) with fangs
+    px(bx-10, by-24, 20, 2, '#000');
+    if (attacking) {
+        for (var t = 0; t < 4; t++) px(bx-9 + t*5, by-24, 3, 9, '#fff');
+    }
+    // BIG CURVED RAM HORNS
+    ctx.strokeStyle = '#1a0808'; ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(bx-25, by-88);
+    ctx.quadraticCurveTo(bx-70, by-130, bx-55, by-160);
+    ctx.stroke();
+    ctx.strokeStyle = '#3a1515'; ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(bx-25, by-88);
+    ctx.quadraticCurveTo(bx-70, by-130, bx-55, by-160);
+    ctx.stroke();
+    ctx.strokeStyle = '#1a0808'; ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(bx+25, by-88);
+    ctx.quadraticCurveTo(bx+70, by-130, bx+55, by-160);
+    ctx.stroke();
+    ctx.strokeStyle = '#3a1515'; ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(bx+25, by-88);
+    ctx.quadraticCurveTo(bx+70, by-130, bx+55, by-160);
+    ctx.stroke();
+
+    // TORCH between horns (Baphomet's flame)
+    ctx.fillStyle = '#3a1010';
+    px(bx-4, by-108, 8, 18, '#3a1010');
+    ctx.save();
+    ctx.shadowColor = '#ff8020'; ctx.shadowBlur = 30;
+    ctx.fillStyle = 'rgba(255,140,30,0.9)';
+    ctx.beginPath();
+    var ft = Date.now() * 0.008;
+    ctx.moveTo(bx, by-118);
+    ctx.quadraticCurveTo(bx+8, by-130 + Math.sin(ft)*3, bx, by-140);
+    ctx.quadraticCurveTo(bx-8, by-130 - Math.sin(ft)*3, bx, by-118);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,100,0.9)';
+    ctx.beginPath();
+    ctx.moveTo(bx, by-122);
+    ctx.quadraticCurveTo(bx+4, by-130, bx, by-136);
+    ctx.quadraticCurveTo(bx-4, by-130, bx, by-122);
+    ctx.fill();
+    ctx.restore();
+
+    // EYES — deep burning red
+    ctx.save();
+    ctx.shadowColor = '#ff2a2a'; ctx.shadowBlur = 22;
+    px(bx-22, by-72, 14, 12, '#ff2a2a');
+    px(bx+8, by-72, 14, 12, '#ff2a2a');
+    ctx.restore();
+    px(bx-19, by-69, 6, 6, '#fff');
+    px(bx+11, by-69, 6, 6, '#fff');
+    // vertical goat pupil
+    px(bx-16, by-74, 3, 16, '#0a0505');
+    px(bx+14, by-74, 3, 16, '#0a0505');
+    // under-eye glow
+    px(bx-22, by-58, 14, 3, 'rgba(255,60,60,0.6)');
+    px(bx+8, by-58, 14, 3, 'rgba(255,60,60,0.6)');
+}
+
+// ---- Baphomet-Panther: panther body with goat horns + magenta sigil ----
+function drawBaphometPanther(bx, by, attacking) {
     // tail
-    var tailWave = Math.sin(Date.now() * 0.01) * 10;
-    px(bx + 50, by + 20 + tailWave, 30, 8, '#0f0f0f');
-    px(bx + 70, by + 15 + tailWave, 15, 8, '#0f0f0f');
-    px(bx + 80, by + 12 + tailWave, 6, 6, '#2a2a2a');
-
-    // body — with shading
-    px(bx - 50, by - 20, 100, 80, '#1a1a1a');
-    px(bx - 50, by - 20, 100, 6, '#2a2a2a');
-    px(bx - 50, by + 54, 100, 6, '#0a0a0a');
-    // muscle highlight
-    px(bx - 30, by - 10, 30, 40, '#252525');
-    px(bx + 5, by - 5, 25, 35, '#252525');
+    var tw = Math.sin(Date.now() * 0.01) * 10;
+    px(bx+50, by+20+tw, 30, 8, '#0f0f0f');
+    px(bx+70, by+15+tw, 15, 8, '#0f0f0f');
+    // panther body
+    px(bx-50, by-20, 100, 80, '#0a0a0a');
+    px(bx-50, by-20, 100, 6, '#1a1a1a');
+    px(bx-30, by-10, 30, 40, '#151515');
     // legs
-    px(bx - 55, by - 15, 10, 60, '#0f0f0f');
-    px(bx + 45, by - 15, 10, 60, '#0f0f0f');
-    px(bx - 55, by - 15, 10, 3, '#2a2a2a');
-    px(bx + 45, by - 15, 10, 3, '#2a2a2a');
-    // paws
-    px(bx - 58, by + 42, 14, 6, '#0a0a0a');
-    px(bx + 44, by + 42, 14, 6, '#0a0a0a');
-
+    px(bx-55, by-15, 10, 60, '#0f0f0f');
+    px(bx+45, by-15, 10, 60, '#0f0f0f');
+    px(bx-58, by+42, 14, 6, '#050505');
+    px(bx+44, by+42, 14, 6, '#050505');
     // head
-    px(bx - 40, by - 65, 80, 55, '#0f0f0f');
-    px(bx - 40, by - 65, 80, 6, '#252525');
-    // ears
-    px(bx - 45, by - 85, 20, 25, '#0f0f0f');
-    px(bx + 25, by - 85, 20, 25, '#0f0f0f');
-    px(bx - 42, by - 82, 12, 18, '#5a0f2a');
-    px(bx + 30, by - 82, 12, 18, '#5a0f2a');
-    px(bx - 40, by - 80, 8, 12, '#7a1a3a');
-    px(bx + 32, by - 80, 8, 12, '#7a1a3a');
-
-    // muzzle
-    px(bx - 15, by - 35, 30, 18, '#0a0a0a');
-    px(bx - 15, by - 35, 30, 3, '#1a1a1a');
-
-    // eyes with intense glow
-    ctx.save();
-    ctx.shadowColor = '#ff2a8c'; ctx.shadowBlur = 18;
-    px(bx - 25, by - 55, 14, 14, '#ff2a8c');
-    px(bx + 11, by - 55, 14, 14, '#ff2a8c');
-    ctx.restore();
-    px(bx - 21, by - 51, 6, 6, '#fff');
-    px(bx + 15, by - 51, 6, 6, '#fff');
-    px(bx - 19, by - 49, 3, 3, '#ff2a8c');
-    px(bx + 17, by - 49, 3, 3, '#ff2a8c');
-
-    // nose
-    px(bx - 5, by - 30, 10, 6, '#3a0a1a');
-    px(bx - 4, by - 29, 8, 2, '#5a1a2a');
-
-    // whiskers
-    px(bx - 55, by - 42, 20, 1, '#8a8a8a');
-    px(bx - 55, by - 36, 20, 1, '#8a8a8a');
-    px(bx - 55, by - 30, 20, 1, '#8a8a8a');
-    px(bx + 35, by - 42, 20, 1, '#8a8a8a');
-    px(bx + 35, by - 36, 20, 1, '#8a8a8a');
-    px(bx + 35, by - 30, 20, 1, '#8a8a8a');
-
-    // teeth when attacking
-    if (attacking) {
-        for (var t = 0; t < 4; t++) {
-            px(bx - 12 + t * 8, by - 24, 4, 12, '#fff');
-            px(bx - 12 + t * 8, by - 24, 4, 3, '#e0e0e0');
-        }
-    }
-}
-
-function drawDog(bx, by, attacking) {
-    // tail wag
-    var wag = Math.sin(Date.now() * 0.02) * 14;
-    px(bx + 42, by + 15, 25, 8, '#2a1e12');
-    px(bx + 62, by + 12 + wag, 12, 8, '#2a1e12');
-    px(bx + 72, by + 8 + wag, 6, 6, '#3a2a1a');
-
-    // body with shading
-    px(bx - 45, by - 15, 90, 75, '#3b2a1a');
-    px(bx - 45, by - 15, 90, 6, '#5a3f28');
-    px(bx - 45, by + 54, 90, 6, '#1a1008');
-    px(bx - 30, by - 10, 25, 40, '#4a3520');
-    px(bx + 5, by - 5, 20, 35, '#4a3520');
-    // fur texture
-    for (var f = 0; f < 8; f++) {
-        px(bx - 40 + f * 12, by + 20 + (f % 2) * 8, 3, 5, '#2a1e12');
-    }
-
-    // legs
-    px(bx - 50, by - 10, 8, 55, '#2a1e12');
-    px(bx + 42, by - 10, 8, 55, '#2a1e12');
-    // paws
-    px(bx - 52, by + 42, 12, 6, '#1a1008');
-    px(bx + 40, by + 42, 12, 6, '#1a1008');
-
-    // head
-    px(bx - 35, by - 60, 70, 50, '#2a1e12');
-    px(bx - 35, by - 60, 70, 5, '#4a3520');
-    // ears (floppy)
-    px(bx - 45, by - 75, 22, 32, '#1f160e');
-    px(bx + 23, by - 75, 22, 32, '#1f160e');
-    px(bx - 42, by - 72, 14, 20, '#3a2518');
-    px(bx + 26, by - 72, 14, 20, '#3a2518');
+    px(bx-40, by-65, 80, 55, '#0a0a0a');
+    px(bx-40, by-65, 80, 6, '#1a1a1a');
+    // Small curved goat horns
+    ctx.strokeStyle = '#2a0a1a'; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(bx-32, by-63); ctx.quadraticCurveTo(bx-60, by-95, bx-48, by-115); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx+32, by-63); ctx.quadraticCurveTo(bx+60, by-95, bx+48, by-115); ctx.stroke();
+    ctx.strokeStyle = '#5a0f2a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(bx-32, by-63); ctx.quadraticCurveTo(bx-60, by-95, bx-48, by-115); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx+32, by-63); ctx.quadraticCurveTo(bx+60, by-95, bx+48, by-115); ctx.stroke();
     // snout
-    px(bx - 18, by - 38, 36, 22, '#1f160e');
-    px(bx - 18, by - 38, 36, 3, '#3a2518');
-    // mouth
-    px(bx - 14, by - 20, 28, 2, '#0a0505');
-
+    px(bx-15, by-35, 30, 18, '#050505');
+    // pentagram sigil on forehead
+    drawPentagram(bx, by-50, 12, '#ff2a8c', 0.9, 14);
     // eyes
-    ctx.save();
-    ctx.shadowColor = '#ff3333'; ctx.shadowBlur = 14;
-    px(bx - 22, by - 52, 12, 12, '#ff3333');
-    px(bx + 10, by - 52, 12, 12, '#ff3333');
+    ctx.save(); ctx.shadowColor = '#ff2a8c'; ctx.shadowBlur = 18;
+    px(bx-25, by-55, 14, 14, '#ff2a8c');
+    px(bx+11, by-55, 14, 14, '#ff2a8c');
     ctx.restore();
-    px(bx - 18, by - 48, 5, 5, '#fff');
-    px(bx + 14, by - 48, 5, 5, '#fff');
-    px(bx - 17, by - 47, 3, 3, '#ff3333');
-    px(bx + 15, by - 47, 3, 3, '#ff3333');
-
-    // nose
-    px(bx - 6, by - 28, 12, 8, '#000');
-    px(bx - 4, by - 27, 8, 2, '#3a3a3a');
-
+    px(bx-21, by-51, 6, 6, '#fff');
+    px(bx+15, by-51, 6, 6, '#fff');
+    px(bx-19, by-49, 3, 3, '#ff2a8c');
+    px(bx+17, by-49, 3, 3, '#ff2a8c');
+    // whiskers
+    px(bx-55, by-42, 20, 1, '#8a4a6a');
+    px(bx-55, by-34, 20, 1, '#8a4a6a');
+    px(bx+35, by-42, 20, 1, '#8a4a6a');
+    px(bx+35, by-34, 20, 1, '#8a4a6a');
     // teeth
-    if (attacking) {
-        for (var t = 0; t < 4; t++) {
-            px(bx - 12 + t * 8, by - 18, 4, 12, '#fff');
-            px(bx - 12 + t * 8, by - 18, 4, 3, '#e0e0e0');
-        }
-    } else {
-        px(bx - 10, by - 18, 3, 6, '#ddd');
-        px(bx + 8, by - 18, 3, 6, '#ddd');
-    }
+    if (attacking) for (var t = 0; t < 4; t++) px(bx-12 + t*8, by-24, 4, 12, '#fff');
 }
 
-function drawWolf(bx, by, attacking) {
+// ---- Baphomet-Wolf: grey wolf with ram horns + yellow sigil + candles ----
+function drawBaphometWolf(bx, by, attacking) {
     // body
-    px(bx - 55, by - 25, 110, 85, '#4d4d5c');
-    px(bx - 55, by - 25, 110, 7, '#6a6a78');
-    px(bx - 55, by + 54, 110, 6, '#2a2a35');
-    px(bx - 35, by - 15, 30, 45, '#5a5a68');
-    px(bx + 5, by - 10, 25, 40, '#5a5a68');
-
+    px(bx-55, by-25, 110, 85, '#3a3a48');
+    px(bx-55, by-25, 110, 7, '#5a5a68');
+    px(bx-35, by-15, 30, 45, '#4a4a58');
     // legs
-    px(bx - 60, by - 20, 10, 65, '#3a3a48');
-    px(bx + 50, by - 20, 10, 65, '#3a3a48');
-    px(bx - 62, by + 42, 14, 6, '#2a2a35');
-    px(bx + 48, by + 42, 14, 6, '#2a2a35');
-
+    px(bx-60, by-20, 10, 65, '#2a2a35');
+    px(bx+50, by-20, 10, 65, '#2a2a35');
+    px(bx-62, by+42, 14, 6, '#1a1a25');
+    px(bx+48, by+42, 14, 6, '#1a1a25');
     // head
-    px(bx - 45, by - 75, 90, 60, '#3a3a48');
-    px(bx - 45, by - 75, 90, 6, '#5a5a68');
-
-    // ears (pointy with inner)
-    ctx.fillStyle = '#2d2d38';
-    ctx.beginPath();
-    ctx.moveTo(bx - 45, by - 80);
-    ctx.lineTo(bx - 25, by - 118);
-    ctx.lineTo(bx - 10, by - 80);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(bx + 45, by - 80);
-    ctx.lineTo(bx + 25, by - 118);
-    ctx.lineTo(bx + 10, by - 80);
-    ctx.closePath(); ctx.fill();
-
-    ctx.fillStyle = '#4a1520';
-    ctx.beginPath();
-    ctx.moveTo(bx - 40, by - 82);
-    ctx.lineTo(bx - 27, by - 108);
-    ctx.lineTo(bx - 16, by - 82);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(bx + 40, by - 82);
-    ctx.lineTo(bx + 27, by - 108);
-    ctx.lineTo(bx + 16, by - 82);
-    ctx.closePath(); ctx.fill();
-
+    px(bx-45, by-75, 90, 60, '#3a3a48');
+    px(bx-45, by-75, 90, 6, '#5a5a68');
+    // Big curved ram horns
+    ctx.strokeStyle = '#2a2a35'; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.moveTo(bx-40, by-73); ctx.quadraticCurveTo(bx-90, by-115, bx-70, by-145); ctx.stroke();
+    ctx.strokeStyle = '#5a5a68'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(bx-40, by-73); ctx.quadraticCurveTo(bx-90, by-115, bx-70, by-145); ctx.stroke();
+    ctx.strokeStyle = '#2a2a35'; ctx.lineWidth = 12;
+    ctx.beginPath(); ctx.moveTo(bx+40, by-73); ctx.quadraticCurveTo(bx+90, by-115, bx+70, by-145); ctx.stroke();
+    ctx.strokeStyle = '#5a5a68'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(bx+40, by-73); ctx.quadraticCurveTo(bx+90, by-115, bx+70, by-145); ctx.stroke();
     // snout
-    px(bx - 22, by - 42, 44, 26, '#2d2d38');
-    px(bx - 22, by - 42, 44, 3, '#4a4a55');
-
-    // eyes with intense glow
-    ctx.save();
-    ctx.shadowColor = '#f0e13b'; ctx.shadowBlur = 20;
-    px(bx - 30, by - 62, 16, 16, '#f0e13b');
-    px(bx + 14, by - 62, 16, 16, '#f0e13b');
+    px(bx-22, by-42, 44, 26, '#2a2a35');
+    // pentagram on forehead
+    drawPentagram(bx, by-58, 14, '#f0e13b', 0.95, 16);
+    // eyes
+    ctx.save(); ctx.shadowColor = '#f0e13b'; ctx.shadowBlur = 22;
+    px(bx-30, by-62, 16, 16, '#f0e13b');
+    px(bx+14, by-62, 16, 16, '#f0e13b');
     ctx.restore();
-    px(bx - 25, by - 57, 7, 7, '#fff');
-    px(bx + 19, by - 57, 7, 7, '#fff');
-    px(bx - 23, by - 55, 4, 4, '#f0e13b');
-    px(bx + 21, by - 55, 4, 4, '#f0e13b');
-
+    px(bx-25, by-57, 7, 7, '#fff');
+    px(bx+19, by-57, 7, 7, '#fff');
+    px(bx-23, by-55, 4, 4, '#f0e13b');
+    px(bx+21, by-55, 4, 4, '#f0e13b');
     // nose
-    px(bx - 9, by - 32, 18, 10, '#111');
-    px(bx - 7, by - 30, 14, 3, '#3a3a3a');
-
+    px(bx-9, by-32, 18, 10, '#111');
     // fangs
-    if (attacking) {
-        for (var t = 0; t < 4; t++) {
-            px(bx - 16 + t * 10, by - 20, 6, 16, '#eee');
-            px(bx - 16 + t * 10, by - 20, 6, 3, '#b0b0b0');
-        }
-    } else {
-        px(bx - 14, by - 20, 5, 10, '#ddd');
-        px(bx + 10, by - 20, 5, 10, '#ddd');
-    }
-
-    // fur tufts on back
+    if (attacking) for (var t = 0; t < 4; t++) px(bx-16 + t*10, by-20, 6, 16, '#eee');
+    else { px(bx-14, by-20, 5, 10, '#ddd'); px(bx+10, by-20, 5, 10, '#ddd'); }
+    // fur tufts
     for (var i = 0; i < 5; i++) {
         ctx.beginPath();
-        ctx.moveTo(bx - 50 + i * 20, by - 25);
-        ctx.lineTo(bx - 45 + i * 20, by - 42);
-        ctx.lineTo(bx - 40 + i * 20, by - 25);
-        ctx.closePath();
-        ctx.fillStyle = '#2d2d38';
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(bx - 48 + i * 20, by - 25);
-        ctx.lineTo(bx - 45 + i * 20, by - 36);
-        ctx.lineTo(bx - 42 + i * 20, by - 25);
-        ctx.closePath();
-        ctx.fillStyle = '#4a4a55';
-        ctx.fill();
+        ctx.moveTo(bx-50 + i*20, by-25);
+        ctx.lineTo(bx-45 + i*20, by-42);
+        ctx.lineTo(bx-40 + i*20, by-25);
+        ctx.closePath(); ctx.fillStyle = '#2a2a35'; ctx.fill();
+    }
+    // floating black candles (occult)
+    for (var c = 0; c < 3; c++) {
+        var cx2 = bx - 70 + c * 70;
+        var cy2 = by + 60 + Math.sin(Date.now()*0.003 + c) * 5;
+        px(cx2, cy2, 6, 14, '#0a0a0a');
+        ctx.save();
+        ctx.shadowColor = '#ffb040'; ctx.shadowBlur = 14;
+        ctx.fillStyle = '#ffb040';
+        ctx.beginPath(); ctx.arc(cx2+3, cy2-3, 3, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
     }
 }
 
-// ============================================================
-// HUD / OVERLAYS
-// ============================================================
+// ============ HUD ============
 function drawHUD() {
     if (gameState.msgTimer > 0 && gameState.msg) {
         ctx.textAlign = 'center';
         ctx.font = 'bold 24px "Courier New", monospace';
-        ctx.shadowColor = '#6a1e1e';
-        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#6a1e1e'; ctx.shadowBlur = 12;
         ctx.fillStyle = '#f0d0a0';
-        ctx.fillText(gameState.msg, 450, 110);
+        ctx.fillText(gameState.msg, 450, 105);
         ctx.shadowBlur = 0;
     }
-
     if (gameState.warning > 0) {
-        var a = Math.abs(Math.sin(Date.now() * 0.03)) * 0.35;
+        var a = Math.abs(Math.sin(Date.now() * 0.03)) * 0.4;
         ctx.fillStyle = 'rgba(180,0,0,' + a + ')';
         ctx.fillRect(0, 0, 900, 600);
-        ctx.textAlign = 'center';
-        ctx.font = 'bold 42px "Courier New", monospace';
-        ctx.fillStyle = 'rgba(255,60,60,' + (a * 2) + ')';
-        ctx.fillText('!', 450, 300);
     }
-
     // room tabs
-    var tabW = 150;
-    var tabY = 555;
-    var startX = 450 - (gameState.rooms.length * tabW) / 2;
+    var tabW = 150, tabY = 555, startX = 450 - (gameState.rooms.length * tabW) / 2;
     for (var i = 0; i < gameState.rooms.length; i++) {
         var tx = startX + i * tabW;
         var active = i === gameState.roomIndex;
         ctx.fillStyle = active ? 'rgba(90,120,160,0.85)' : 'rgba(30,40,55,0.75)';
-        ctx.fillRect(tx + 4, tabY, tabW - 8, 32);
+        ctx.fillRect(tx+4, tabY, tabW-8, 32);
         ctx.strokeStyle = active ? '#a0c0ff' : '#4b5e77';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(tx + 4, tabY, tabW - 8, 32);
-        if (active) {
-            ctx.fillStyle = 'rgba(160,200,255,0.5)';
-            ctx.fillRect(tx + 4, tabY, tabW - 8, 3);
+        ctx.lineWidth = 2; ctx.strokeRect(tx+4, tabY, tabW-8, 32);
+        // family dots
+        var famHere = [];
+        for (var fi = 0; fi < gameState.family.length; fi++) {
+            var f = gameState.family[fi];
+            if (f.alive && f.roomIndex === i) famHere.push(f);
         }
         ctx.fillStyle = active ? '#e5efff' : '#8a9aad';
-        ctx.font = 'bold 13px "Courier New", monospace';
+        ctx.font = 'bold 12px "Courier New", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(gameState.rooms[i].name, tx + tabW / 2, tabY + 21);
+        ctx.fillText(gameState.rooms[i].name, tx + tabW/2, tabY + 20);
+        // dot indicators
+        for (var d = 0; d < famHere.length; d++) {
+            ctx.fillStyle = famHere[d].id === 'mom' ? '#e08ab0' : famHere[d].id === 'dad' ? '#6a9ad0' : '#f0d060';
+            ctx.beginPath(); ctx.arc(tx + 20 + d*14, tabY + 26, 4, 0, Math.PI*2); ctx.fill();
+        }
     }
-
     // noise meter
     var nw = 180, nx = 360, ny = 20;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(nx, ny, nw, 12);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(nx, ny, nw, 12);
     ctx.fillStyle = gameState.noise > 60 ? '#e05050' : '#6aa0d0';
     ctx.fillRect(nx, ny, nw * (gameState.noise / 100), 12);
-    ctx.strokeStyle = '#4b5e77';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(nx, ny, nw, 12);
-    ctx.fillStyle = '#7a8a9a';
-    ctx.font = '10px "Courier New", monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText('NOISE', nx, ny - 3);
-
-    // form indicator
-    ctx.textAlign = 'right';
-    ctx.font = 'bold 14px "Courier New", monospace';
-    var formCol = gameState.demonForm === 'panther' ? '#ff2a8c'
-                : gameState.demonForm === 'dog' ? '#ff3333' : '#f0e13b';
+    ctx.strokeStyle = '#4b5e77'; ctx.lineWidth = 2; ctx.strokeRect(nx, ny, nw, 12);
+    ctx.fillStyle = '#7a8a9a'; ctx.font = '10px "Courier New", monospace';
+    ctx.textAlign = 'left'; ctx.fillText('NOISE', nx, ny - 3);
+    // form
+    ctx.textAlign = 'right'; ctx.font = 'bold 14px "Courier New", monospace';
+    var formCol = gameState.demonForm === 'baphomet' ? '#ff2a2a' : gameState.demonForm === 'panther' ? '#ff2a8c' : '#f0e13b';
     ctx.fillStyle = formCol;
     ctx.fillText('▲ ' + gameState.demonForm.toUpperCase(), 880, 25);
-
     // hour progress
     var prog = Math.min(1, gameState.hourTimer / gameState.hourLength);
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(360, 40, 180, 6);
-    ctx.fillStyle = '#c9a86a';
-    ctx.fillRect(360, 40, 180 * prog, 6);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(360, 40, 180, 6);
+    ctx.fillStyle = '#c9a86a'; ctx.fillRect(360, 40, 180 * prog, 6);
 }
 
-// ============================================================
-// JUMPScare + DEATH
-// ============================================================
+// ============ DEATH ============
 function drawDeath() {
     var t = Math.min(1, gameState.jumpscareTimer);
     var scale = 1 + t * 3;
-    var bx = 450;
-    var baseY = 300 + Math.sin(Date.now() * 0.1) * 20;
-
+    var bx = 450, baseY = 300 + Math.sin(Date.now()*0.1) * 20;
     ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.translate(bx, baseY);
-    ctx.scale(scale, scale);
-    ctx.translate(-bx, -baseY);
-
+    ctx.translate(bx, baseY); ctx.scale(scale, scale); ctx.translate(-bx, -baseY);
     var form = gameState.jumpscareForm;
-    if (form === 'panther') drawPanther(bx, baseY, true);
-    else if (form === 'dog') drawDog(bx, baseY, true);
-    else drawWolf(bx, baseY, true);
+    if (form === 'baphomet') drawBaphomet(bx, baseY, true);
+    else if (form === 'panther') drawBaphometPanther(bx, baseY, true);
+    else drawBaphometWolf(bx, baseY, true);
     ctx.restore();
-
-    ctx.fillStyle = 'rgba(120,0,0,' + (t * 0.5) + ')';
+    ctx.fillStyle = 'rgba(120,0,0,' + (t * 0.55) + ')';
     ctx.fillRect(0, 0, 900, 600);
-
     if (gameState.shake > 0) {
-        var sx = (Math.random() - 0.5) * gameState.shake * 30;
-        var sy = (Math.random() - 0.5) * gameState.shake * 30;
-        ctx.translate(sx, sy);
+        ctx.translate((Math.random()-0.5)*gameState.shake*30, (Math.random()-0.5)*gameState.shake*30);
     }
-
     if (gameState.jumpscareTimer > 1.5) {
-        ctx.fillStyle = 'rgba(0,0,0,0.85)';
-        ctx.fillRect(0, 0, 900, 600);
+        ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(0, 0, 900, 600);
         ctx.textAlign = 'center';
         ctx.font = 'bold 62px "Courier New", monospace';
         ctx.fillStyle = '#d44';
-        ctx.shadowColor = '#500';
-        ctx.shadowBlur = 20;
-        ctx.fillText('GAME OVER', 450, 260);
+        ctx.shadowColor = '#500'; ctx.shadowBlur = 20;
+        ctx.fillText('GAME OVER', 450, 240);
         ctx.shadowBlur = 0;
         ctx.font = '22px "Courier New", monospace';
         ctx.fillStyle = '#c0a0a0';
-        ctx.fillText('The ' + gameState.jumpscareForm + ' got you.', 450, 320);
-        ctx.fillStyle = '#7a8a9a';
-        ctx.font = '16px "Courier New", monospace';
-        ctx.fillText('You survived ' + gameState.timeSurvived.toFixed(1) + 's', 450, 360);
+        ctx.fillText(gameState.deathReason || 'The demon got you.', 450, 310);
+        ctx.fillStyle = '#7a8a9a'; ctx.font = '16px "Courier New", monospace';
+        ctx.fillText('Survived: ' + gameState.timeSurvived.toFixed(1) + 's', 450, 350);
         ctx.fillStyle = '#a0c0ff';
         ctx.fillText('PRESS ENTER TO RETURN', 450, 430);
     }
@@ -1635,124 +1393,88 @@ function drawDeath() {
 function drawWin() {
     var t = Math.min(1, gameState.winTimer / 3);
     var grad = ctx.createLinearGradient(0, 600, 0, 0);
-    grad.addColorStop(0, 'rgb(' + Math.floor(40 + t * 200) + ',' + Math.floor(20 + t * 120) + ',' + Math.floor(30 + t * 40) + ')');
-    grad.addColorStop(0.5, 'rgb(' + Math.floor(20 + t * 100) + ',' + Math.floor(30 + t * 60) + ',' + Math.floor(50 + t * 60) + ')');
+    grad.addColorStop(0, 'rgb(' + Math.floor(40 + t*200) + ',' + Math.floor(20 + t*120) + ',' + Math.floor(30 + t*40) + ')');
+    grad.addColorStop(0.5, 'rgb(' + Math.floor(20 + t*100) + ',' + Math.floor(30 + t*60) + ',' + Math.floor(50 + t*60) + ')');
     grad.addColorStop(1, 'rgb(10,15,30)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 900, 600);
-
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 900, 600);
     var sunY = 500 - t * 250;
-    ctx.fillStyle = 'rgba(255,220,120,' + (0.6 + t * 0.4) + ')';
-    ctx.beginPath(); ctx.arc(450, sunY, 80, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,240,180,' + (0.4 + t * 0.4) + ')';
-    ctx.beginPath(); ctx.arc(450, sunY, 50, 0, Math.PI * 2); ctx.fill();
-
+    ctx.fillStyle = 'rgba(255,220,120,' + (0.6 + t*0.4) + ')';
+    ctx.beginPath(); ctx.arc(450, sunY, 80, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,180,' + (0.4 + t*0.4) + ')';
+    ctx.beginPath(); ctx.arc(450, sunY, 50, 0, Math.PI*2); ctx.fill();
     ctx.textAlign = 'center';
-    ctx.font = 'bold 78px "Courier New", monospace';
+    ctx.font = 'bold 70px "Courier New", monospace';
     ctx.fillStyle = '#fff0c0';
-    ctx.shadowColor = '#ffb040';
-    ctx.shadowBlur = 30;
-    ctx.fillText('6:00 AM', 450, 200);
+    ctx.shadowColor = '#ffb040'; ctx.shadowBlur = 30;
+    ctx.fillText('6:00 AM', 450, 190);
     ctx.shadowBlur = 0;
-
-    ctx.font = 'bold 42px "Courier New", monospace';
+    ctx.font = 'bold 38px "Courier New", monospace';
     ctx.fillStyle = '#c8e0a0';
-    ctx.fillText('YOU SURVIVED', 450, 280);
-
-    ctx.font = '20px "Courier New", monospace';
-    ctx.fillStyle = '#e0e8f0';
-    ctx.fillText('Time: ' + gameState.timeSurvived.toFixed(1) + 's', 450, 340);
-
-    if (gameState.timeSurvived >= bestTime) {
-        ctx.fillStyle = '#ffd060';
+    ctx.fillText('FAMILY SURVIVED', 450, 260);
+    // list family
+    var alive = 0;
+    for (var i = 0; i < gameState.family.length; i++) {
+        var f = gameState.family[i];
         ctx.font = 'bold 22px "Courier New", monospace';
-        ctx.fillText('★ NEW BEST TIME ★', 450, 380);
+        ctx.fillStyle = f.alive ? '#a0e0a0' : '#6a3a3a';
+        ctx.fillText((f.alive ? '✓ ' : '✗ ') + f.name, 450, 310 + i * 30);
+        if (f.alive) alive++;
     }
-
-    ctx.fillStyle = '#a0c0ff';
     ctx.font = '18px "Courier New", monospace';
-    ctx.fillText('PRESS ENTER TO PLAY AGAIN', 450, 460);
+    ctx.fillStyle = '#e0e8f0';
+    ctx.fillText('Time: ' + gameState.timeSurvived.toFixed(1) + 's · Alive: ' + alive + '/3', 450, 440);
+    ctx.fillStyle = '#a0c0ff';
+    ctx.fillText('PRESS ENTER TO PLAY AGAIN', 450, 500);
 }
 
 function drawPause() {
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(0, 0, 900, 600);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 900, 600);
     ctx.textAlign = 'center';
     ctx.font = 'bold 60px "Courier New", monospace';
-    ctx.fillStyle = '#c8d8f0';
-    ctx.fillText('PAUSED', 450, 280);
+    ctx.fillStyle = '#c8d8f0'; ctx.fillText('PAUSED', 450, 280);
     ctx.font = '18px "Courier New", monospace';
-    ctx.fillStyle = '#8a9aad';
-    ctx.fillText('Press ESC to resume', 450, 340);
+    ctx.fillStyle = '#8a9aad'; ctx.fillText('Press ESC to resume', 450, 340);
 }
 
-// ============================================================
-// MAIN RENDER
-// ============================================================
+// ============ MAIN DRAW ============
 function draw() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-
     if (gameState.scene === 'title') { drawTitle(); return; }
-
-    if (gameState.scene === 'dead') {
-        drawHouse();
-        drawDemon();
-        drawDeath();
-        return;
-    }
-
+    if (gameState.scene === 'dead') { drawHouse(); drawDemon(); drawFamilyMembers(); drawDeath(); return; }
     if (gameState.scene === 'win') { drawWin(); return; }
-
-    // playing (or paused)
     ctx.save();
-    if (gameState.shake > 0) {
-        var sx = (Math.random() - 0.5) * gameState.shake * 12;
-        var sy = (Math.random() - 0.5) * gameState.shake * 12;
-        ctx.translate(sx, sy);
-    }
-
+    if (gameState.shake > 0) ctx.translate((Math.random()-0.5)*gameState.shake*12, (Math.random()-0.5)*gameState.shake*12);
     drawHouse();
     drawDemon();
-    drawPlayer();          // <-- new: player drawn in scene
+    drawFamilyMembers();
+    drawPlayer();
     ctx.restore();
-
     if (gameState.flickerTimer > 0) {
-        ctx.fillStyle = 'rgba(80,0,0,' + (Math.random() * 0.25) + ')';
+        ctx.fillStyle = 'rgba(80,0,0,' + (Math.random()*0.25) + ')';
         ctx.fillRect(0, 0, 900, 600);
-        for (var i = 0; i < 30; i++) {
-            ctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.1) + ')';
-            ctx.fillRect(Math.random() * 900, Math.random() * 600, 8, 8);
-        }
+        for (var i = 0; i < 30; i++) { ctx.fillStyle = 'rgba(255,255,255,' + (Math.random()*0.1) + ')'; ctx.fillRect(Math.random()*900, Math.random()*600, 8, 8); }
     }
-
     drawHUD();
-
     if (gameState.paused) drawPause();
 }
 
-// ============================================================
-// GAME LOOP
-// ============================================================
+// ============ LOOP ============
 var lastTime = performance.now() / 1000;
 function gameLoop(now) {
     var nowSec = now / 1000;
     var dt = nowSec - lastTime;
     if (dt > 0.1) dt = 0.1;
     lastTime = nowSec;
-
     update(dt);
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-// ============================================================
-// INIT
-// ============================================================
-restartButton.addEventListener('click', function() {
+// ============ INIT ============
+document.getElementById('restartButton').addEventListener('click', function() {
     gameState.scene = 'title';
     gameState.paused = false;
 });
-
 gameState = freshState();
 updateHUD();
 requestAnimationFrame(gameLoop);
