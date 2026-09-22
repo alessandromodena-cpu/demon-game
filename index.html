@@ -77,7 +77,7 @@
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="900" height="600"></canvas>
     <div class="info-bar">
-        <span>🔒 <span id="lockCount">4</span>/4</span>
+        <span>🔒 <span id="lockCount">8/8</span></span>
         <span>⏳ <span id="clockDisplay">12:00 AM</span></span>
         <span>🔋 <span id="batteryDisplay">100%</span></span>
         <span>⚡ <span id="staminaDisplay">100%</span></span>
@@ -88,58 +88,64 @@
 </div>
 <script>
 (function() {
+"use strict";
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 
-const lockCountSpan = document.getElementById('lockCount');
-const clockDisplaySpan = document.getElementById('clockDisplay');
-const batteryDisplaySpan = document.getElementById('batteryDisplay');
-const staminaDisplaySpan = document.getElementById('staminaDisplay');
-const bestTimeSpan = document.getElementById('bestTime');
+const lockCountSpan     = document.getElementById('lockCount');
+const clockDisplaySpan  = document.getElementById('clockDisplay');
+const batteryDisplaySpan= document.getElementById('batteryDisplay');
+const staminaDisplaySpan= document.getElementById('staminaDisplay');
+const bestTimeSpan      = document.getElementById('bestTime');
+const restartButton     = document.getElementById('restartButton');
 
 // ============================================================
-// AUDIO (procedural)
+// AUDIO
 // ============================================================
 let audioCtx = null;
 function initAudio() {
     if (!audioCtx) {
-        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-        catch(e) { audioCtx = null; }
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { audioCtx = null; }
     }
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }
-function beep(freq, dur, type='square', vol=0.08, slideTo=null) {
+function beep(freq, dur, type, vol, slideTo) {
     if (!audioCtx) return;
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.type = type;
-    o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + dur);
-    g.gain.setValueAtTime(vol, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
-    o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime + dur);
+    try {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = type || 'square';
+        o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + dur);
+        g.gain.setValueAtTime(vol || 0.08, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + dur);
+    } catch(e) {}
 }
-function playClick()    { beep(880, 0.05, 'square', 0.05, 440); }
-function playLock()     { beep(220, 0.14, 'sawtooth', 0.08, 110); }
-function playUnlock()   { beep(180, 0.12, 'square', 0.06, 300); }
-function playBreak()    { beep(140, 0.35, 'sawtooth', 0.13, 40); }
-function playGrowl()    { beep(80, 0.5, 'sawtooth', 0.11, 45); }
-function playHeartbeat(){ beep(60, 0.1, 'sine', 0.14); }
-function playStep()     { beep(120, 0.04, 'square', 0.03); }
-function playBarricade(){ beep(150, 0.2, 'square', 0.09, 80); }
-function playFlash()    { beep(400, 0.05, 'square', 0.03); }
+const playClick     = () => beep(880, 0.05, 'square', 0.05, 440);
+const playLock      = () => beep(220, 0.14, 'sawtooth', 0.08, 110);
+const playUnlock    = () => beep(180, 0.12, 'square', 0.06, 300);
+const playBreak     = () => beep(140, 0.35, 'sawtooth', 0.13, 40);
+const playGrowl     = () => beep(80, 0.5, 'sawtooth', 0.11, 45);
+const playHeartbeat = () => beep(60, 0.1, 'sine', 0.14);
+const playStep      = () => beep(120, 0.04, 'square', 0.03);
+const playBarricade = () => beep(150, 0.2, 'square', 0.09, 80);
+const playFlash     = () => beep(400, 0.05, 'square', 0.03);
 function playScream() {
     if (!audioCtx) return;
-    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(1400, audioCtx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 1.3);
-    g.gain.setValueAtTime(0.28, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.3);
-    o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime + 1.3);
+    try {
+        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(1400, audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 1.3);
+        g.gain.setValueAtTime(0.28, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.3);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 1.3);
+    } catch(e) {}
 }
 function playWin() {
     [523, 659, 784, 1047].forEach((f,i) => setTimeout(() => beep(f, 0.25, 'sine', 0.12), i*180));
@@ -150,47 +156,40 @@ function playWin() {
 // ============================================================
 const HOURS = ['12:00 AM','1:00 AM','2:00 AM','3:00 AM','4:00 AM','5:00 AM','6:00 AM'];
 const DIFFICULTIES = {
-    easy:      { hourLen: 20, baseInterval: 6.0, name: 'EASY' },
-    normal:    { hourLen: 16, baseInterval: 4.5, name: 'NORMAL' },
-    nightmare: { hourLen: 13, baseInterval: 3.2, name: 'NIGHTMARE' }
+    easy:      { hourLen: 20, baseInterval: 6.0 },
+    normal:    { hourLen: 16, baseInterval: 4.5 },
+    nightmare: { hourLen: 13, baseInterval: 3.2 }
 };
 
-// Each room has: name, entryPoints (with type: door/window/vent), locks,
-// barricades, flashlightDrain, baseNoise, wallColor, floorColor.
 function buildRooms() {
     return [
         {
-            id: 'bedroom',
-            name: 'BEDROOM',
+            id: 'bedroom', name: 'BEDROOM',
             wall: '#1a1620', floor: '#13101a',
             entryPoints: [
                 { x: 130, y: 300, w: 130, h: 220, type: 'window', label: 'WINDOW', locked: true, barricade: 0, maxBarricade: 3 },
                 { x: 620, y: 200, w: 140, h: 280, type: 'door',   label: 'DOOR',   locked: true, barricade: 0, maxBarricade: 4 }
             ],
             objects: [
-                { type: 'bed',   x: 340, y: 380, w: 200, h: 110 },
-                { type: 'lamp',  x: 60,  y: 140, w: 30,  h: 60, on: false }
-            ],
-            noisePerStep: 0.15
+                { type: 'bed',  x: 340, y: 380, w: 200, h: 110 },
+                { type: 'lamp', x: 60,  y: 140, w: 30,  h: 60, on: false }
+            ]
         },
         {
-            id: 'hallway',
-            name: 'HALLWAY',
+            id: 'hallway', name: 'HALLWAY',
             wall: '#141820', floor: '#0f131a',
             entryPoints: [
-                { x: 380, y: 200, w: 140, h: 260, type: 'door',   label: 'FRONT',  locked: true, barricade: 0, maxBarricade: 5 },
-                { x: 100, y: 240, w: 100, h: 180, type: 'vent',   label: 'VENT',   locked: true, barricade: 0, maxBarricade: 2 },
-                { x: 700, y: 240, w: 100, h: 180, type: 'vent',   label: 'VENT',   locked: true, barricade: 0, maxBarricade: 2 }
+                { x: 380, y: 200, w: 140, h: 260, type: 'door', label: 'FRONT', locked: true, barricade: 0, maxBarricade: 5 },
+                { x: 100, y: 240, w: 100, h: 180, type: 'vent', label: 'VENT',  locked: true, barricade: 0, maxBarricade: 2 },
+                { x: 700, y: 240, w: 100, h: 180, type: 'vent', label: 'VENT',  locked: true, barricade: 0, maxBarricade: 2 }
             ],
             objects: [
                 { type: 'painting', x: 250, y: 130, w: 60, h: 80 },
                 { type: 'painting', x: 590, y: 130, w: 60, h: 80 }
-            ],
-            noisePerStep: 0.1
+            ]
         },
         {
-            id: 'kitchen',
-            name: 'KITCHEN',
+            id: 'kitchen', name: 'KITCHEN',
             wall: '#1c1814', floor: '#161210',
             entryPoints: [
                 { x: 700, y: 280, w: 150, h: 240, type: 'window', label: 'WINDOW', locked: true, barricade: 0, maxBarricade: 3 },
@@ -199,22 +198,19 @@ function buildRooms() {
             objects: [
                 { type: 'counter', x: 100, y: 400, w: 200, h: 60 },
                 { type: 'fridge',  x: 60,  y: 220, w: 70,  h: 170 }
-            ],
-            noisePerStep: 0.2
+            ]
         },
         {
-            id: 'living',
-            name: 'LIVING ROOM',
+            id: 'living', name: 'LIVING ROOM',
             wall: '#18161c', floor: '#121017',
             entryPoints: [
-                { x: 100, y: 260, w: 150, h: 250, type: 'door',   label: 'BACK DOOR', locked: true, barricade: 0, maxBarricade: 4 },
-                { x: 620, y: 260, w: 150, h: 250, type: 'window', label: 'WINDOW',    locked: true, barricade: 0, maxBarricade: 3 }
+                { x: 100, y: 260, w: 150, h: 250, type: 'door',   label: 'BACK',   locked: true, barricade: 0, maxBarricade: 4 },
+                { x: 620, y: 260, w: 150, h: 250, type: 'window', label: 'WINDOW', locked: true, barricade: 0, maxBarricade: 3 }
             ],
             objects: [
                 { type: 'sofa', x: 330, y: 420, w: 240, h: 80 },
                 { type: 'tv',   x: 380, y: 200, w: 140, h: 100, on: false }
-            ],
-            noisePerStep: 0.12
+            ]
         }
     ];
 }
@@ -245,7 +241,6 @@ function freshState() {
         msgTimer: 0,
         shake: 0,
         warning: 0,
-        // player
         roomIndex: 0,
         stamina: 100,
         maxStamina: 100,
@@ -253,14 +248,11 @@ function freshState() {
         flashlight: false,
         battery: 100,
         maxBattery: 100,
-        noise: 0,             // 0-100; >70 demon attacks faster
-        // world
+        noise: 0,
         rooms: buildRooms(),
-        // demon memory (learns where you're weak)
         demonTargetRoom: 0,
         demonTargetEntry: 0,
         demonAdaptCount: 0,
-        // death/win
         timeSurvived: 0,
         deathTimer: 0,
         winTimer: 0,
@@ -270,26 +262,22 @@ function freshState() {
         heartbeatInterval: 1.5,
         moonFlicker: 0,
         paused: false,
-        // fx
         bloodSplats: [],
         sparks: [],
-        // input
         keys: {}
     };
 }
 
 // ---------- best time ----------
-function loadBest() { try { const v = localStorage.getItem('demonStalkerBest2'); return v ? parseFloat(v) : 0; } catch(e){ return 0; } }
+let bestTime = 0;
+try { const v = localStorage.getItem('demonStalkerBest2'); bestTime = v ? parseFloat(v) : 0; } catch(e){}
 function saveBest(t) { try { localStorage.setItem('demonStalkerBest2', t.toString()); } catch(e){} }
-let bestTime = loadBest();
 function updateBestUI() {
-    if (bestTime <= 0) bestTimeSpan.textContent = '--';
-    else {
-        const h = Math.floor(bestTime / 60);
-        const m = Math.floor(bestTime) % 60;
-        const s = Math.floor((bestTime*10) % 10);
-        bestTimeSpan.textContent = `${h}h${m}m${s}s`;
-    }
+    if (bestTime <= 0) { bestTimeSpan.textContent = '--'; return; }
+    const h = Math.floor(bestTime / 60);
+    const m = Math.floor(bestTime) % 60;
+    const s = Math.floor((bestTime*10) % 10);
+    bestTimeSpan.textContent = h + 'h' + m + 'm' + s + 's';
 }
 updateBestUI();
 
@@ -305,20 +293,15 @@ function totalEntryPoints() {
     for (const r of gameState.rooms) c += r.entryPoints.length;
     return c;
 }
-function anyUnlocked() {
-    for (const r of gameState.rooms) for (const e of r.entryPoints) if (!e.locked) return true;
-    return false;
-}
 function updateHUD() {
-    const locked = totalLocked(), total = totalEntryPoints();
-    lockCountSpan.textContent = `${locked}/${total}`;
+    lockCountSpan.textContent = totalLocked() + '/' + totalEntryPoints();
     clockDisplaySpan.textContent = HOURS[gameState.hour];
     batteryDisplaySpan.textContent = Math.max(0, Math.floor(gameState.battery)) + '%';
     staminaDisplaySpan.textContent = Math.max(0, Math.floor(gameState.stamina)) + '%';
 }
 
 // ============================================================
-// START / RESET
+// START
 // ============================================================
 function startGame(difficulty) {
     initAudio();
@@ -337,9 +320,10 @@ function startGame(difficulty) {
 // ============================================================
 // INPUT
 // ============================================================
-window.addEventListener('keydown', e => {
+window.addEventListener('keydown', function(e) {
     if (!gameState.keys) gameState.keys = {};
-    gameState.keys[e.key.toLowerCase()] = true;
+    const k = e.key.toLowerCase();
+    gameState.keys[k] = true;
 
     if (gameState.scene === 'title') {
         if (e.key === '1') startGame('easy');
@@ -350,28 +334,27 @@ window.addEventListener('keydown', e => {
     if (gameState.scene === 'playing' || gameState.scene === 'paused') {
         if (e.key === 'Escape') gameState.paused = !gameState.paused;
         if (e.key === ' ') { e.preventDefault(); toggleFlashlight(); }
-        if (e.key.toLowerCase() === 'e') interact();
+        if (k === 'e') interact();
         if (e.key === 'ArrowLeft')  moveRoom(-1);
         if (e.key === 'ArrowRight') moveRoom(1);
     }
     if (gameState.scene === 'dead' || gameState.scene === 'win') {
-        if (e.key === 'Enter') gameState.scene = 'title';
+        if (e.key === 'Enter' || e.key === ' ') gameState.scene = 'title';
     }
 });
-window.addEventListener('keyup', e => {
+window.addEventListener('keyup', function(e) {
     if (gameState.keys) gameState.keys[e.key.toLowerCase()] = false;
 });
 
-canvas.addEventListener('click', e => {
+canvas.addEventListener('click', function(e) {
     initAudio();
     const r = canvas.getBoundingClientRect();
     const mx = (e.clientX - r.left) * (canvas.width / r.width);
     const my = (e.clientY - r.top)  * (canvas.height / r.height);
 
     if (gameState.scene === 'title') {
-        // difficulty buttons
         const btnY = 400;
-        if (my > btnY && my < btnY + 50) {
+        if (my > btnY && my < btnY + 55) {
             if (mx > 200 && mx < 340) startGame('easy');
             else if (mx > 360 && mx < 540) startGame('normal');
             else if (mx > 560 && mx < 700) startGame('nightmare');
@@ -379,12 +362,13 @@ canvas.addEventListener('click', e => {
         return;
     }
     if (gameState.scene !== 'playing') return;
+    if (gameState.paused) return;
 
-    // click arrows to change rooms
-    if (mx < 50 && my > 250 && my < 400) { moveRoom(-1); return; }
-    if (mx > 850 && my > 250 && my < 400) { moveRoom(1); return; }
+    // room nav arrows
+    if (mx < 55 && my > 250 && my < 400) { moveRoom(-1); return; }
+    if (mx > 845 && my > 250 && my < 400) { moveRoom(1); return; }
 
-    // click entry points in the current room to toggle lock / place barricade
+    // interact with entry points
     const room = currentRoom();
     for (const ep of room.entryPoints) {
         if (mx >= ep.x && mx <= ep.x + ep.w && my >= ep.y && my <= ep.y + ep.h) {
@@ -395,24 +379,21 @@ canvas.addEventListener('click', e => {
 });
 
 function handleEntryClick(ep) {
-    // Left click = toggle lock. If unlocked, right-click equivalent not available,
-    // so we auto-place barricade when unlocked and you click again.
     if (ep.locked) {
         ep.locked = false;
         playUnlock();
-        gameState.msg = `${ep.label} unlocked!`;
+        gameState.msg = ep.label + ' unlocked!';
         gameState.msgTimer = 1.2;
     } else if (ep.barricade < ep.maxBarricade) {
         ep.barricade++;
         playBarricade();
-        gameState.msg = `Barricade +1 (${ep.barricade}/${ep.maxBarricade})`;
+        gameState.msg = 'Barricade +1 (' + ep.barricade + '/' + ep.maxBarricade + ')';
         gameState.msgTimer = 1.2;
     } else {
-        // full barricade — relock
         ep.locked = true;
         ep.barricade = 0;
         playLock();
-        gameState.msg = `${ep.label} locked again`;
+        gameState.msg = ep.label + ' locked again';
         gameState.msgTimer = 1.2;
     }
     updateHUD();
@@ -425,12 +406,26 @@ function toggleFlashlight() {
 }
 
 function interact() {
-    // Interact with nearby objects
     const room = currentRoom();
     for (const obj of room.objects) {
-        if (obj.type === 'lamp' && obj.on === false) { obj.on = true; gameState.msg = 'Lamp on. Panther hates light!'; gameState.msgTimer = 1.8; return; }
-        if (obj.type === 'tv'   && obj.on === false) { obj.on = true;  gameState.msg = 'TV on. Drowns out noise.';     gameState.msgTimer = 1.8; return; }
-        if (obj.type === 'bed')  { gameState.msg = 'You hide under the bed. (Demo)'; gameState.msgTimer = 1.5; return; }
+        if (obj.type === 'lamp' && !obj.on) {
+            obj.on = true;
+            gameState.msg = 'Lamp on. Panther hates light!';
+            gameState.msgTimer = 1.8;
+            return;
+        }
+        if (obj.type === 'tv' && !obj.on) {
+            obj.on = true;
+            gameState.msg = 'TV on. Drowns out noise.';
+            gameState.msgTimer = 1.8;
+            return;
+        }
+        if (obj.type === 'bed') {
+            gameState.msg = 'You hide under the bed for a moment.';
+            gameState.msgTimer = 1.5;
+            gameState.noise = Math.max(0, gameState.noise - 25);
+            return;
+        }
     }
 }
 
@@ -448,17 +443,22 @@ function moveRoom(dir) {
 // UPDATE
 // ============================================================
 function update(dt) {
-    if (gameState.scene === 'title') { gameState.demonBob = Math.sin(Date.now()*0.003)*4; return; }
+    if (gameState.scene === 'title') {
+        gameState.demonBob = Math.sin(Date.now() * 0.003) * 4;
+        return;
+    }
     if (gameState.scene === 'dead') {
         gameState.deathTimer += dt;
         gameState.jumpscareTimer += dt;
-        gameState.shake = Math.max(0, gameState.shake - dt*2);
+        gameState.shake = Math.max(0, gameState.shake - dt * 2);
         return;
     }
     if (gameState.scene === 'win') { gameState.winTimer += dt; return; }
     if (gameState.paused) return;
 
-    // Player input polling
+    gameState.timeSurvived += dt;
+
+    // sprint / stamina
     gameState.sprinting = !!gameState.keys['shift'];
     if (gameState.sprinting && gameState.stamina > 0) {
         gameState.stamina = Math.max(0, gameState.stamina - dt * 18);
@@ -467,16 +467,19 @@ function update(dt) {
         gameState.stamina = Math.min(gameState.maxStamina, gameState.stamina + dt * 12);
     }
 
-    // Flashlight battery
+    // flashlight battery
     if (gameState.flashlight) {
         gameState.battery = Math.max(0, gameState.battery - dt * 4.5);
-        if (gameState.battery <= 0) { gameState.flashlight = false; gameState.msg = 'Battery dead!'; gameState.msgTimer = 2; }
+        if (gameState.battery <= 0) {
+            gameState.flashlight = false;
+            gameState.msg = 'Battery dead!';
+            gameState.msgTimer = 2;
+        }
     } else {
-        // very slow recharge when off
         gameState.battery = Math.min(gameState.maxBattery, gameState.battery + dt * 0.6);
     }
 
-    // Noise decay
+    // noise decay
     gameState.noise = Math.max(0, gameState.noise - dt * 20);
 
     // timers
@@ -484,22 +487,21 @@ function update(dt) {
     if (gameState.msgTimer > 0) gameState.msgTimer -= dt;
     if (gameState.formTimer > 0) gameState.formTimer -= dt;
     if (gameState.flickerTimer > 0) gameState.flickerTimer -= dt;
-    if (gameState.shake > 0) gameState.shake = Math.max(0, gameState.shake - dt*2.5);
+    if (gameState.shake > 0) gameState.shake = Math.max(0, gameState.shake - dt * 2.5);
     if (gameState.warning > 0) gameState.warning = Math.max(0, gameState.warning - dt);
     if (gameState.poseTimer > 0) gameState.poseTimer -= dt;
-    if (gameState.demonBob === undefined) gameState.demonBob = 0;
-    gameState.demonBob = Math.sin(Date.now()*0.008)*3;
+    gameState.demonBob = Math.sin(Date.now() * 0.008) * 3;
 
-    // fx
-    for (let i = gameState.bloodSplats.length-1; i >= 0; i--) {
+    // fx decay
+    for (let i = gameState.bloodSplats.length - 1; i >= 0; i--) {
         gameState.bloodSplats[i].life -= dt;
-        if (gameState.bloodSplats[i].life <= 0) gameState.bloodSplats.splice(i,1);
+        if (gameState.bloodSplats[i].life <= 0) gameState.bloodSplats.splice(i, 1);
     }
-    for (let i = gameState.sparks.length-1; i >= 0; i--) {
+    for (let i = gameState.sparks.length - 1; i >= 0; i--) {
         gameState.sparks[i].life -= dt;
         gameState.sparks[i].vy += dt * 200;
         gameState.sparks[i].y += gameState.sparks[i].vy * dt;
-        if (gameState.sparks[i].life <= 0) gameState.sparks.splice(i,1);
+        if (gameState.sparks[i].life <= 0) gameState.sparks.splice(i, 1);
     }
 
     // heartbeat
@@ -513,19 +515,20 @@ function update(dt) {
 
     // random flicker
     if (Math.random() < 0.004) gameState.flickerTimer = 0.3;
+    gameState.moonFlicker = Math.random() < 0.015 ? 0.15 : 0;
 
     // form change
     if (gameState.formTimer <= 0) {
-        const forms = ['panther','dog','wolf'];
-        let nf = forms[Math.floor(Math.random()*3)];
-        if (nf === gameState.demonForm) nf = forms[(forms.indexOf(nf)+1)%3];
+        const forms = ['panther', 'dog', 'wolf'];
+        let nf = forms[Math.floor(Math.random() * 3)];
+        if (nf === gameState.demonForm) nf = forms[(forms.indexOf(nf) + 1) % 3];
         gameState.demonForm = nf;
-        gameState.msg = `Demon is now a ${nf.toUpperCase()}`;
+        gameState.msg = 'Demon is now a ' + nf.toUpperCase();
         gameState.msgTimer = 1.8;
-        gameState.formTimer = 6 + Math.random()*6;
+        gameState.formTimer = 6 + Math.random() * 6;
     }
 
-    // Attack warning / attack
+    // attack warning + attack
     gameState.attackTimer += dt;
     if (gameState.attackTimer >= gameState.attackInterval - 0.9 && gameState.warning <= 0) {
         gameState.warning = 0.9;
@@ -546,25 +549,28 @@ function update(dt) {
             const scale = [1, 0.85, 0.72, 0.60, 0.50, 0.38][gameState.hour] || 0.38;
             gameState.baseInterval = DIFFICULTIES[gameState.difficulty].baseInterval * scale;
             gameState.attackInterval = Math.min(gameState.attackInterval, gameState.baseInterval);
-            // heal a bit for surviving an hour
+            // small mercy heal
             gameState.battery = Math.min(gameState.maxBattery, gameState.battery + 25);
             gameState.stamina = gameState.maxStamina;
             if (gameState.hour >= 6) {
                 gameState.scene = 'win';
                 gameState.winTimer = 0;
                 playWin();
-                if (gameState.timeSurvived > bestTime) { bestTime = gameState.timeSurvived; saveBest(bestTime); updateBestUI(); }
+                if (gameState.timeSurvived > bestTime) {
+                    bestTime = gameState.timeSurvived;
+                    saveBest(bestTime);
+                    updateBestUI();
+                }
             } else {
-                gameState.msg = `Hour ${gameState.hour} — it's getting bolder`;
+                gameState.msg = 'Hour ' + gameState.hour + ' — it grows bolder';
                 gameState.msgTimer = 2;
             }
         }
     }
 }
 
-// ---------- Demon AI: pick a target entry point ----------
+// ---------- Demon AI ----------
 function performAttack() {
-    // If demon has no target, pick based on weaknesses + adaptation
     const rooms = gameState.rooms;
     const candidates = [];
     for (let ri = 0; ri < rooms.length; ri++) {
@@ -572,79 +578,78 @@ function performAttack() {
         for (let ei = 0; ei < r.entryPoints.length; ei++) {
             const ep = r.entryPoints[ei];
             let weight = 1.0;
-            if (!ep.locked) weight += 2.5;             // open = easier
-            if (ep.barricade > 0) weight -= ep.barricade * 0.4; // barricade = harder
-            if (ri === gameState.demonTargetRoom && ei === gameState.demonTargetEntry) weight += 1.5; // preference from learning
-            candidates.push({ ri, ei, w: Math.max(0.1, weight) });
+            if (!ep.locked) weight += 2.5;
+            if (ep.barricade > 0) weight -= ep.barricade * 0.4;
+            if (ri === gameState.demonTargetRoom && ei === gameState.demonTargetEntry) weight += 1.5;
+            if (weight < 0.1) weight = 0.1;
+            candidates.push({ ri, ei, w: weight });
         }
     }
-    // weighted pick
-    let total = 0; for (const c of candidates) total += c.w;
+    let total = 0;
+    for (const c of candidates) total += c.w;
     let roll = Math.random() * total;
     let pick = candidates[0];
-    for (const c of candidates) { roll -= c.w; if (roll <= 0) { pick = c; break; } }
+    for (const c of candidates) {
+        roll -= c.w;
+        if (roll <= 0) { pick = c; break; }
+    }
 
-    const room = rooms[pick.ri];
-    const ep = room.entryPoints[pick.ei];
+    let room = rooms[pick.ri];
+    let ep   = room.entryPoints[pick.ei];
 
-    // FORM-SPECIFIC MODIFIERS
-    // panther: prefers door
-    // dog: prefers windows
-    // wolf: prefers vent
-    let formBonus = 1.0;
-    if (gameState.demonForm === 'panther' && ep.type === 'door') formBonus = 1.6;
-    if (gameState.demonForm === 'dog'     && ep.type === 'window') formBonus = 1.6;
-    if (gameState.demonForm === 'wolf'    && ep.type === 'vent') formBonus = 1.6;
-    if (formBonus > 1 && Math.random() < (formBonus - 1)) {
-        // reroll to a matching type
-        const matching = candidates.filter(c => rooms[c.ri].entryPoints[c.ei].type ===
-            (gameState.demonForm === 'panther' ? 'door' : gameState.demonForm === 'dog' ? 'window' : 'vent'));
+    // form-specific preference
+    let preferredType = gameState.demonForm === 'panther' ? 'door'
+                      : gameState.demonForm === 'dog'     ? 'window'
+                      : 'vent';
+    if (ep.type !== preferredType && Math.random() < 0.5) {
+        const matching = candidates.filter(function(c) {
+            return rooms[c.ri].entryPoints[c.ei].type === preferredType;
+        });
         if (matching.length > 0) {
-            pick = matching[Math.floor(Math.random()*matching.length)];
+            pick = matching[Math.floor(Math.random() * matching.length)];
+            room = rooms[pick.ri];
+            ep = room.entryPoints[pick.ei];
         }
     }
 
     gameState.demonTargetRoom = pick.ri;
     gameState.demonTargetEntry = pick.ei;
-
-    attackEntry(room, ep, pick.ri, pick.ei);
+    attackEntry(room, ep);
 }
 
-function attackEntry(room, ep, ri, ei) {
+function attackEntry(room, ep) {
     gameState.demonPose = 'attack';
     gameState.poseTimer = 0.5;
     gameState.shake = 1.0;
     playBreak();
 
-    // Barricade absorbs damage first
+    // barricade absorbs
     if (ep.barricade > 0) {
         ep.barricade--;
-        gameState.msg = `${gameState.demonForm.toUpperCase()} smashes a barricade in ${room.name}!`;
+        gameState.msg = gameState.demonForm.toUpperCase() + ' smashes a barricade in ' + room.name + '!';
         gameState.msgTimer = 1.8;
-        // sparks
         for (let i = 0; i < 12; i++) {
             gameState.sparks.push({
-                x: ep.x + ep.w/2 + (Math.random()-0.5)*ep.w,
-                y: ep.y + ep.h/2 + (Math.random()-0.5)*ep.h,
-                vy: -Math.random()*180, life: 0.6 + Math.random()*0.4
+                x: ep.x + ep.w/2 + (Math.random() - 0.5) * ep.w,
+                y: ep.y + ep.h/2 + (Math.random() - 0.5) * ep.h,
+                vy: -Math.random() * 180,
+                life: 0.6 + Math.random() * 0.4
             });
         }
         return;
     }
 
     if (ep.locked) {
-        // unlock it (demon breaks the lock mechanism)
         ep.locked = false;
-        gameState.msg = `${gameState.demonForm.toUpperCase()} broke the ${ep.label} lock in ${room.name}!`;
+        gameState.msg = gameState.demonForm.toUpperCase() + ' broke the ' + ep.label + ' lock in ' + room.name + '!';
         gameState.msgTimer = 1.8;
-        // blood
-        gameState.bloodSplats.push({ x: ep.x + ep.w/2, y: ep.y + ep.h/2, life: 3, max: 3 });
-        // form extra
+        gameState.bloodSplats.push({ x: ep.x + ep.w/2, y: ep.y + ep.h/2, life: 3 });
+        updateHUD();
         handleFormExtra(ep, room);
         return;
     }
 
-    // entry already unlocked — DEMON GETS IN
+    // unlocked entry → demon enters → death
     gameState.scene = 'dead';
     gameState.deathTimer = 0;
     gameState.jumpscareTimer = 0;
@@ -655,25 +660,91 @@ function attackEntry(room, ep, ri, ei) {
 
 function handleFormExtra(ep, room) {
     if (gameState.demonForm === 'panther' && Math.random() < 0.3) {
-        // second target (learns to go for weak rooms)
-        const otherRooms = gameState.rooms.filter(r => r.id !== room.id);
+        const otherRooms = gameState.rooms.filter(function(r) { return r.id !== room.id; });
         if (otherRooms.length > 0) {
-            const or = otherRooms[Math.floor(Math.random()*otherRooms.length)];
-            const oep = or.entryPoints[Math.floor(Math.random()*or.entryPoints.length)];
+            const or = otherRooms[Math.floor(Math.random() * otherRooms.length)];
+            const oep = or.entryPoints[Math.floor(Math.random() * or.entryPoints.length)];
             if (oep.locked) {
-                setTimeout(() => {
+                setTimeout(function() {
                     if (gameState.scene !== 'playing') return;
                     oep.locked = false;
-                    gameState.msg = `🐾 PANTHER double swipe!`;
+                    gameState.msg = '🐾 PANTHER double swipe!';
                     gameState.msgTimer = 1.4;
-                    gameState.bloodSplats.push({ x: oep.x+oep.w/2, y: oep.y+oep.h/2, life: 3, max: 3 });
+                    gameState.bloodSplats.push({ x: oep.x + oep.w/2, y: oep.y + oep.h/2, life: 3 });
+                    updateHUD();
                 }, 260);
             }
         }
     } else if (gameState.demonForm === 'dog' && Math.random() < 0.35) {
-        // dog targets another entry in same room
-        const others = room.entryPoints.filter(e => e !== ep && e.locked);
+        const others = room.entryPoints.filter(function(e) { return e !== ep && e.locked; });
         if (others.length > 0) {
-            const o = others[Math.floor(Math.random()*others.length)];
+            const o = others[Math.floor(Math.random() * others.length)];
             o.locked = false;
-            gameState.msg = `🐕 DOG bites
+            gameState.msg = '🐕 DOG bites another lock!';
+            gameState.msgTimer = 1.4;
+            gameState.bloodSplats.push({ x: o.x + o.w/2, y: o.y + o.h/2, life: 3 });
+            updateHUD();
+        }
+    } else if (gameState.demonForm === 'wolf' && Math.random() < 0.45) {
+        gameState.flickerTimer = 1.0;
+        gameState.msg = '🐺 WOLF howls! Vision blurs...';
+        gameState.msgTimer = 1.5;
+    }
+}
+
+// ============================================================
+// DRAWING
+// ============================================================
+function px(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+}
+
+function drawTitle() {
+    // backdrop
+    const grad = ctx.createLinearGradient(0, 0, 0, 600);
+    grad.addColorStop(0, '#0a0d12');
+    grad.addColorStop(1, '#1a0a0a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 900, 600);
+
+    // stars
+    ctx.fillStyle = '#5a6a80';
+    for (let i = 0; i < 60; i++) {
+        const sx = (i * 137) % 900;
+        const sy = (i * 71) % 300;
+        ctx.fillRect(sx, sy, 2, 2);
+    }
+
+    // moon
+    ctx.fillStyle = '#dfe7f5';
+    ctx.beginPath(); ctx.arc(700, 120, 50, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#0a0d12';
+    ctx.beginPath(); ctx.arc(680, 105, 45, 0, Math.PI * 2); ctx.fill();
+
+    // title
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 62px "Courier New", monospace';
+    ctx.fillStyle = '#c94a4a';
+    ctx.shadowColor = '#ff2a2a';
+    ctx.shadowBlur = 20;
+    ctx.fillText('SURVIVE UNTIL', 450, 180);
+    ctx.fillStyle = '#e0e0e0';
+    ctx.shadowColor = '#a0a0ff';
+    ctx.shadowBlur = 24;
+    ctx.font = 'bold 78px "Courier New", monospace';
+    ctx.fillText('6:00 AM', 450, 260);
+    ctx.shadowBlur = 0;
+
+    // subtitle
+    ctx.font = '18px "Courier New", monospace';
+    ctx.fillStyle = '#8a9aad';
+    ctx.fillText('A DEMON STALKS YOUR HOME', 450, 310);
+
+    // difficulty buttons
+    const btnY = 400;
+    const btnH = 55;
+    const btns = [
+        { x: 200, w: 140, label: 'EASY',      color: '#4a8a4a' },
+        { x: 360, w: 180, label: 'NORMAL',    color: '#a8803a' },
+        { x: 560, w: 140, label
