@@ -366,7 +366,8 @@ for(const k in RAW){
   // anchor: bottom-center on a 16x16 tile
   SPR[k] = { img, ox: Math.floor((16-img.width)/2), oy: 16-img.height };
 }
-SPR.bishop.oy = 16 - 24 + 4; // let him stand a bit into the tile below
+// Bishop is 24x24; anchor bottom-center on a 16x16 tile.
+SPR.bishop.oy = -8;
 
 // ---------------------------------------------------------
 // TILE BAKING
@@ -503,6 +504,7 @@ resize();
 let actx = null;
 function initAudio(){
   if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(actx && actx.state === 'suspended') actx.resume();
 }
 function sfx(type){
   if(!actx) return;
@@ -582,6 +584,7 @@ let msgLog = [];
 let turn = 0;
 let shake = 0;
 let boonChoices = null;
+let pendingBoons = 0;
 let deathTimer = 0;
 let winTimer = 0;
 let animT = 0;
@@ -760,9 +763,9 @@ function gainXP(n){
     if(player.level%3===0) player.def += 1;
     player.maxEssence += 2; player.essence = player.maxEssence;
     if(player.level%4===0) player.maxMinions++;
+    pendingBoons++;
     sfx('level');
     log(`You ascend to level ${player.level}.`, '#b6ff7a');
-    offerBoons();
   }
 }
 
@@ -782,6 +785,7 @@ function offerBoons(){
   for(let i=0;i<3 && pool.length;i++){
     boonChoices.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
   }
+  if(boonChoices.length === 0){ state = 'play'; return; }
   state = 'boon';
 }
 
@@ -845,8 +849,11 @@ function buildFloor(d){
   // --- boss ---
   if(def.boss){
     const sr = info.stairRoom;
-    // put stairs elsewhere-ish; boss in the big room
     const bc = { x: Math.floor(sr.x+sr.w/2), y: Math.floor(sr.y+sr.h/2) };
+
+    // Clear anything already on the boss tile
+    entities = entities.filter(e => !(e.x === bc.x && e.y === bc.y));
+
     const boss = mkEntity({
       x:bc.x, y:bc.y,
       hp: BISHOP.hp, maxhp: BISHOP.hp, atk: BISHOP.atk, def: BISHOP.def,
@@ -854,14 +861,21 @@ function buildFloor(d){
       xp: BISHOP.xp, boss: true
     });
     entities.push(boss);
-    // boss guards
-    for(let i=0;i<4;i++){
-      const t = freeTiles[fi++]; if(!t) continue;
-      const e = mkEntity({
-        x:t.x, y:t.y, hp:40, maxhp:40, atk:12, def:5,
+
+    // Boss guards placed in a 7x7 area around him
+    const guards = [];
+    for(let dy=-3; dy<=3; dy++)
+      for(let dx=-3; dx<=3; dx++){
+        if(dx===0 && dy===0) continue;
+        const nx = bc.x+dx, ny = bc.y+dy;
+        if(walkable(nx,ny)) guards.push({x:nx,y:ny});
+      }
+    for(let i=0;i<4 && guards.length;i++){
+      const s = guards.splice(Math.floor(Math.random()*guards.length),1)[0];
+      entities.push(mkEntity({
+        x:s.x, y:s.y, hp:40, maxhp:40, atk:12, def:5,
         sprite:'knight', name:'Temple Knight', range:1, xp:26
-      });
-      entities.push(e);
+      }));
     }
     sfx('boss');
   }
@@ -871,6 +885,7 @@ function buildFloor(d){
   for(let i=0;i<corpses && fi<freeTiles.length;i++){
     const t = freeTiles[fi++];
     if(entityAt(t.x,t.y)) continue;
+    if(items.some(it=>it.x===t.x&&it.y===t.y)) continue;
     items.push({ x:t.x, y:t.y, kind:'corpse', spr:'corpse' });
   }
 
@@ -880,6 +895,7 @@ function buildFloor(d){
   for(let i=0;i<lootCount && fi<freeTiles.length;i++){
     const t = freeTiles[fi++];
     if(entityAt(t.x,t.y)) continue;
+    if(items.some(it=>it.x===t.x&&it.y===t.y)) continue;
     let k = choice(kinds);
     if(k==='potion' && Math.random()<0.45) k='soul';
     items.push({ x:t.x, y:t.y, kind:k, spr:k });
@@ -910,11 +926,17 @@ function playerActed(){
   entities = entities.filter(e=>!e.dead);
   computeFOV();
 
-  if(player.hp <= 0 && state === 'play'){
+  if(player.hp <= 0 && state !== 'dead' && state !== 'win'){
     state = 'dead';
     deathTimer = 0;
     sfx('kill');
     log('Your bones crumble to dust...', '#d4443a');
+    return;
+  }
+
+  if(pendingBoons > 0 && state === 'play'){
+    pendingBoons--;
+    offerBoons();
   }
 }
 
@@ -924,7 +946,7 @@ function tryAttack(attacker, target){
   const dmgBase = attacker.atk - target.def;
   const dmg = Math.max(1, Math.round(dmgBase * (0.75 + Math.random()*0.5)));
   target.hp -= dmg;
-  target.flash = 6;
+  target.flash = 0.15;
   shake = Math.min(6, shake + 2);
   sfx('hit');
   spawnParticles(target.x, target.y, 7, '#d4443a', 1.3);
@@ -942,6 +964,7 @@ function tryAttack(attacker, target){
 }
 
 function killEntity(target, killer){
+  if(target.isPlayer) return; // player death handled in playerActed()
   target.dead = true;
   sfx('kill');
   addDecal(target.x, target.y, 'blood');
@@ -963,8 +986,6 @@ function killEntity(target, killer){
   const gain = Math.round(target.xp * 0.6);
   gainXP(target.xp);
   player.essence = Math.min(player.maxEssence, player.essence + gain);
-
-  if(target.isPlayer) return;
 
   log(`${target.name} is destroyed.`, '#b6ff7a');
 
@@ -1005,7 +1026,7 @@ function nearestEnemy(from){
 }
 
 function enemyTurn(e){
-  if(e.flash>0) e.flash--;
+  if(e.dead) return;
   const d = chebyshev(e, player);
 
   // Cleric heals nearby wounded allies
@@ -1074,7 +1095,7 @@ function enemyTurn(e){
 }
 
 function allyTurn(e){
-  if(e.flash>0) e.flash--;
+  if(e.dead) return;
   const t = nearestEnemy(e);
   if(!t) {
     // follow the player
@@ -1096,7 +1117,7 @@ function movePlayer(dx,dy){
   const target = entityAt(nx,ny);
   if(target){
     if(target.isAlly){
-      // swap-ish: just don't move
+      // allies block movement; don't move
       return;
     }
     tryAttack(player, target);
@@ -1111,7 +1132,6 @@ function movePlayer(dx,dy){
 
 function waitTurn(){
   if(state!=='play') return;
-  player.hp = Math.min(player.maxhp, player.hp + 0);
   playerActed();
 }
 
@@ -1132,18 +1152,20 @@ function applyItem(it){
       player.potions++;
       log('You clutch a vial of crimson.', '#d4443a');
       break;
-    case 'soul':
+    case 'soul': {
       const e = 5 + Math.floor(depth*1.5);
       player.essence = Math.min(player.maxEssence, player.essence+e);
       spawnFloater(player.x,player.y,`+${e} essence`,'#b6ff7a');
       log('Soul essence seeps into your bones.', '#b6ff7a');
       break;
-    case 'scroll':
+    }
+    case 'scroll': {
       const x = 10 + depth*7;
       gainXP(x);
       spawnFloater(player.x,player.y,`+${x} xp`,'#b99ada');
       log('Forbidden knowledge burns through you.', '#b99ada');
       break;
+    }
     case 'shard':
       player.atk += 1;
       spawnFloater(player.x,player.y,'+1 ATK','#7fe0ff');
@@ -1219,7 +1241,10 @@ function onKey(k){
   const key = k.length===1 ? k.toLowerCase() : k;
 
   if(state==='title'){
-    if(key===' '||key==='Enter'){ state='play'; depth=0; player=null; msgLog=[]; buildFloor(1); }
+    if(key===' '||key==='Enter'){
+      state='play'; depth=0; player=null; msgLog=[]; pendingBoons=0;
+      buildFloor(1);
+    }
     return;
   }
   if(state==='dead'){
@@ -1233,11 +1258,16 @@ function onKey(k){
   if(state==='boon'){
     if(key==='1'||key==='2'||key==='3'){
       const i = parseInt(key,10)-1;
-      if(boonChoices[i]){
+      if(boonChoices && boonChoices[i]){
         boonChoices[i].f();
         log(`Boon: ${boonChoices[i].n}`, '#b6ff7a');
         boonChoices = null;
-        state = 'play';
+        if(pendingBoons > 0){
+          pendingBoons--;
+          offerBoons();
+        } else {
+          state = 'play';
+        }
       }
     }
     return;
@@ -1283,23 +1313,16 @@ function drawTile(tx,ty,px,py){
     if(t === 2){
       bx.drawImage(SPR.stairs.img, px, py);
     }
-    // floor decals
   }
 }
 
-function drawDecals(){
-  const camX = Math.round(player.x*TILE + TILE/2 - BUFW/2);
-  const camY = Math.round(player.y*TILE + TILE/2 - BUFH/2);
-  const cX = clamp(camX, 0, Math.max(0, MAPW*TILE - BUFW));
-  const cY = clamp(camY, 0, Math.max(0, MAPH*TILE - BUFH));
-
+function drawDecals(cX, cY){
   for(const d of decals){
     const px = d.x*TILE - cX, py = d.y*TILE - cY;
     if(px < -16 || py < -16 || px > BUFW || py > BUFH) continue;
     if(!visible[d.y*MAPW+d.x]) continue;
-    bx.globalAlpha = 0.5;
+    bx.globalAlpha = 0.5 * d.a;
     bx.fillStyle = d.type === 'blood' ? '#5a1518' : '#1a1620';
-    const h = Math.floor(hash2(d.x,d.y)*6);
     for(let i=0;i<8;i++){
       const ax = (hash2(d.x*13+i, d.y*7)*(14))|0;
       const ay = (hash2(d.x*5, d.y*17+i)*(14))|0;
@@ -1342,7 +1365,7 @@ function render(){
     }
   }
 
-  drawDecals();
+  drawDecals(cX, cY);
 
   // --- items ---
   for(const it of items){
@@ -1351,7 +1374,6 @@ function render(){
     const px = it.x*TILE - cX, py = it.y*TILE - cY;
     const bob = Math.sin(animT*3 + it.x + it.y)*1;
     drawSprite(it.spr, px, py, it.kind==='corpse' ? 0 : bob);
-    // glow for essence items
     if(it.kind === 'soul' || it.kind === 'shard'){
       bx.globalAlpha = 0.25 + Math.sin(animT*4 + it.x)*0.12;
       bx.fillStyle = it.kind === 'soul' ? '#b6ff7a' : '#7fe0ff';
@@ -1375,9 +1397,6 @@ function render(){
     bx.fillRect(px+3, py+13, 10, 3);
     bx.globalAlpha = 1;
 
-    if(e.flash > 0){
-      bx.globalAlpha = 1;
-    }
     drawSprite(e.sprite, px, py, bob);
 
     if(e.flash > 0){
@@ -1385,7 +1404,6 @@ function render(){
       bx.fillStyle = '#ffffff';
       bx.fillRect(px+2, py+2, 12, 12);
       bx.globalAlpha = 1;
-      e.flash--;
     }
 
     // ally aura
@@ -1413,6 +1431,13 @@ function render(){
     bx.globalAlpha = 1;
 
     drawSprite('necro', px, py, bob);
+
+    if(player.flash > 0){
+      bx.globalAlpha = 0.5;
+      bx.fillStyle = '#ffffff';
+      bx.fillRect(px+2, py+2, 12, 12);
+      bx.globalAlpha = 1;
+    }
   }
 
   // --- particles ---
@@ -1493,6 +1518,53 @@ function drawHUD(){
   const pad = 14;
 
   ctx.save();
+
+  // ---------- TITLE ----------
+  if(state === 'title'){
+    ctx.fillStyle = 'rgba(4,3,9,0.88)';
+    ctx.fillRect(0,0,W,H);
+
+    ctx.textAlign = 'center';
+    const t = animT;
+    const bob = Math.sin(t*2)*6;
+
+    ctx.imageSmoothingEnabled = false;
+    const ps = 8;
+    ctx.drawImage(SPR.necro.img, W/2 - 8*ps, H/2 - 140 + bob, 16*ps, 16*ps);
+
+    ctx.font = 'bold 54px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#b6ff7a';
+    ctx.shadowColor = '#5fd85a';
+    ctx.shadowBlur = 24;
+    ctx.fillText('BONE ASCENSION', W/2, H/2 + 20);
+    ctx.shadowBlur = 0;
+
+    ctx.font = '15px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#8a68b4';
+    ctx.fillText('They burned you for a witch. They were right.', W/2, H/2 + 52);
+
+    ctx.font = '13px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#6f6852';
+    ctx.fillText('Ten floors. One cathedral. One bishop.', W/2, H/2 + 78);
+
+    const pulse = 0.5 + Math.sin(t*4)*0.5;
+    ctx.globalAlpha = 0.4 + pulse*0.6;
+    ctx.font = 'bold 17px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#f7f2df';
+    ctx.fillText('PRESS  SPACE  TO RISE', W/2, H/2 + 128);
+    ctx.globalAlpha = 1;
+
+    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#4a4360';
+    ctx.fillText('WASD/Arrows move · R raise dead · Q potion · E stairs', W/2, H - 30);
+
+    ctx.textAlign = 'left';
+    ctx.restore();
+    return;
+  }
+
+  // If we're past title but somehow have no player yet, bail safely.
+  if(!player){ ctx.restore(); return; }
 
   // ---------- top-left panel ----------
   const panW = 250, panH = 108;
@@ -1611,50 +1683,6 @@ function drawHUD(){
     ctx.textAlign = 'left';
   }
 
-  // ---------- title ----------
-  if(state === 'title'){
-    ctx.fillStyle = 'rgba(4,3,9,0.88)';
-    ctx.fillRect(0,0,W,H);
-
-    ctx.textAlign = 'center';
-
-    const t = animT;
-    const bob = Math.sin(t*2)*6;
-
-    // big necromancer
-    ctx.imageSmoothingEnabled = false;
-    const ps = 8;
-    ctx.drawImage(SPR.necro.img, W/2 - 8*ps, H/2 - 140 + bob, 16*ps, 16*ps);
-
-    ctx.font = 'bold 54px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = '#b6ff7a';
-    ctx.shadowColor = '#5fd85a';
-    ctx.shadowBlur = 24;
-    ctx.fillText('BONE ASCENSION', W/2, H/2 + 20);
-    ctx.shadowBlur = 0;
-
-    ctx.font = '15px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = '#8a68b4';
-    ctx.fillText('They burned you for a witch. They were right.', W/2, H/2 + 52);
-
-    ctx.font = '13px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = '#6f6852';
-    ctx.fillText('Ten floors. One cathedral. One bishop.', W/2, H/2 + 78);
-
-    const pulse = 0.5 + Math.sin(t*4)*0.5;
-    ctx.globalAlpha = 0.4 + pulse*0.6;
-    ctx.font = 'bold 17px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = '#f7f2df';
-    ctx.fillText('PRESS  SPACE  TO RISE', W/2, H/2 + 128);
-    ctx.globalAlpha = 1;
-
-    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
-    ctx.fillStyle = '#4a4360';
-    ctx.fillText('WASD/Arrows move · R raise dead · Q potion · E stairs', W/2, H - 30);
-
-    ctx.textAlign = 'left';
-  }
-
   // ---------- death ----------
   if(state === 'dead'){
     ctx.fillStyle = `rgba(8,2,4,${clamp(deathTimer/60,0,0.88)})`;
@@ -1714,6 +1742,12 @@ function loop(now){
   if(state === 'dead') deathTimer++;
   if(state === 'win') winTimer++;
 
+  // decay hit flashes
+  for(const e of entities){
+    if(e.flash > 0) e.flash = Math.max(0, e.flash - dt);
+  }
+  if(player && player.flash > 0) player.flash = Math.max(0, player.flash - dt);
+
   // update particles
   for(let i=particles.length-1;i>=0;i--){
     const p = particles[i];
@@ -1735,25 +1769,27 @@ function loop(now){
   for(const d of decals){ if(d.a > 0.3) d.a -= dt*0.01; }
 
   // ---- render world ----
-  if(state === 'play' || state === 'boon' || state === 'dead' || state === 'win'){
-    if(player){
-      render();
+  if(player){
+    render();
 
-      // floaters into buffer
-      const camX = clamp(Math.round(player.x*TILE + TILE/2 - BUFW/2), 0, Math.max(0, MAPW*TILE-BUFW));
-      const camY = clamp(Math.round(player.y*TILE + TILE/2 - BUFH/2), 0, Math.max(0, MAPH*TILE-BUFH));
-      bx.font = 'bold 8px ui-monospace, monospace';
-      bx.textAlign = 'center';
-      for(const f of floaters){
-        bx.globalAlpha = clamp(f.life,0,1);
-        bx.fillStyle = '#000';
-        bx.fillText(f.text, f.x - camX + 1, f.y - camY + 1);
-        bx.fillStyle = f.color;
-        bx.fillText(f.text, f.x - camX, f.y - camY);
-      }
-      bx.globalAlpha = 1;
-      bx.textAlign = 'left';
+    // floaters into buffer
+    const camX = clamp(Math.round(player.x*TILE + TILE/2 - BUFW/2), 0, Math.max(0, MAPW*TILE-BUFW));
+    const camY = clamp(Math.round(player.y*TILE + TILE/2 - BUFH/2), 0, Math.max(0, MAPH*TILE-BUFH));
+    bx.font = 'bold 8px ui-monospace, monospace';
+    bx.textAlign = 'center';
+    for(const f of floaters){
+      bx.globalAlpha = clamp(f.life,0,1);
+      bx.fillStyle = '#000';
+      bx.fillText(f.text, f.x - camX + 1, f.y - camY + 1);
+      bx.fillStyle = f.color;
+      bx.fillText(f.text, f.x - camX, f.y - camY);
     }
+    bx.globalAlpha = 1;
+    bx.textAlign = 'left';
+  } else {
+    // No player yet (title): keep buffer cleared so blit isn't garbage.
+    bx.fillStyle = '#050409';
+    bx.fillRect(0,0,BUFW,BUFH);
   }
 
   // ---- blit ----
@@ -1769,9 +1805,7 @@ function loop(now){
                 Math.round(BUFW*scale), Math.round(BUFH*scale));
 
   // ---- HUD ----
-  if(state === 'play' || state === 'boon') drawHUD();
-  else if(state === 'dead' || state === 'win') drawHUD();
-  else if(state === 'title') drawHUD();
+  drawHUD();
 
   requestAnimationFrame(loop);
 }
